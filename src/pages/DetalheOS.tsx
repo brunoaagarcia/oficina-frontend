@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import { Topbar } from '../components/Topbar';
@@ -19,8 +19,9 @@ import {
   removerItemMaoDeObra,
   type SugestaoMaoDeObra,
 } from '../lib/ordensServicoApi';
+import { comprimirImagem, deletarFoto, registrarFoto, solicitarUrlUpload, uploadParaR2, validarDuracaoVideo } from '../lib/fotosApi';
 import { formatarCentavos, paraCentavos } from '../lib/moeda';
-import type { OrdemServico, StatusOrdemServico, TipoValorMaoDeObra } from '../lib/types';
+import type { OrdemServico, StatusOrdemServico, TipoMidia, TipoValorMaoDeObra } from '../lib/types';
 
 const PROXIMO_STATUS: Partial<Record<StatusOrdemServico, { valor: StatusOrdemServico; rotulo: string }>> = {
   EM_ANDAMENTO: { valor: 'FINALIZADO', rotulo: 'Finalizar Ordem de Serviço' },
@@ -58,6 +59,10 @@ export function DetalheOS() {
   const [valorFechadoNovo, setValorFechadoNovo] = useState('');
   const [enviandoItem, setEnviandoItem] = useState(false);
   const [removendoItemId, setRemovendoItemId] = useState<string | null>(null);
+
+  // Fotos
+  const [uploadandoFoto, setUploadandoFoto] = useState(false);
+  const [removendoFotoId, setRemovendoFotoId] = useState<string | null>(null);
   const [sugestoesItem, setSugestoesItem] = useState<SugestaoMaoDeObra[]>([]);
   const debounceSugestaoRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -178,6 +183,51 @@ export function DetalheOS() {
       setErro(e instanceof ApiError ? e.message : 'Não foi possível remover esse item.');
     } finally {
       setRemovendoItemId(null);
+    }
+  }
+
+  async function aoAdicionarFoto(evento: ChangeEvent<HTMLInputElement>) {
+    const arquivo = evento.target.files?.[0];
+    if (!arquivo || !os) return;
+
+    const isVideo = arquivo.type.startsWith('video/');
+    setUploadandoFoto(true);
+    setErro(null);
+    try {
+      let arquivoFinal = arquivo;
+      if (isVideo) {
+        await validarDuracaoVideo(arquivo);
+      } else {
+        arquivoFinal = await comprimirImagem(arquivo);
+      }
+      const tipo: TipoMidia = isVideo ? 'VIDEO' : 'FOTO';
+      const { uploadUrl, key } = await solicitarUrlUpload(os.id, arquivoFinal.type);
+      await uploadParaR2(uploadUrl, arquivoFinal);
+      const novaFoto = await registrarFoto(os.id, key, tipo);
+      setOs({ ...os, fotos: [...os.fotos, novaFoto] });
+    } catch (e) {
+      setErro(
+        e instanceof ApiError ? e.message
+        : e instanceof Error ? e.message
+        : 'Não foi possível enviar a mídia.',
+      );
+    } finally {
+      setUploadandoFoto(false);
+      evento.target.value = '';
+    }
+  }
+
+  async function aoRemoverFoto(fotoId: string) {
+    if (!os || !window.confirm('Remover esta foto?')) return;
+    setRemovendoFotoId(fotoId);
+    setErro(null);
+    try {
+      await deletarFoto(os.id, fotoId);
+      setOs({ ...os, fotos: os.fotos.filter((f) => f.id !== fotoId) });
+    } catch (e) {
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível remover a foto.');
+    } finally {
+      setRemovendoFotoId(null);
     }
   }
 
@@ -550,10 +600,61 @@ export function DetalheOS() {
           </div>
         </div>
 
-        {/* Fotos - placeholder, módulo ainda não construído */}
-        <div className="mb-5 rounded-lg border border-dashed border-line bg-white p-4">
-          <h2 className="mb-1 text-sm font-semibold text-ink">Fotos</h2>
-          <p className="text-xs text-ink-soft">Em breve - upload de fotos do veículo e das peças.</p>
+        {/* Fotos */}
+        <div className="mb-5 rounded-lg border border-line bg-white p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-ink">Fotos</h2>
+            {podeEditar && (
+              <label className="cursor-pointer text-xs font-medium text-accent-ink underline">
+                + Adicionar
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/heic,video/mp4,video/quicktime,video/webm"
+                  className="hidden"
+                  onChange={aoAdicionarFoto}
+                  disabled={uploadandoFoto}
+                />
+              </label>
+            )}
+          </div>
+
+          {uploadandoFoto && (
+            <p className="mb-3 text-xs text-ink-soft">Enviando foto...</p>
+          )}
+
+          {os.fotos.length === 0 && !uploadandoFoto ? (
+            <p className="text-sm text-ink-soft">Nenhuma foto ainda.</p>
+          ) : (
+            <div className="grid grid-cols-3 gap-2">
+              {os.fotos.map((foto) => (
+                <div key={foto.id} className="relative">
+                  {foto.tipo === 'VIDEO' ? (
+                    <video
+                      src={foto.url}
+                      className="aspect-square w-full rounded-md object-cover"
+                      controls
+                      preload="metadata"
+                    />
+                  ) : (
+                    <img
+                      src={foto.url}
+                      alt={foto.descricao ?? 'Foto'}
+                      className="aspect-square w-full rounded-md object-cover"
+                    />
+                  )}
+                  {podeEditar && (
+                    <button
+                      onClick={() => aoRemoverFoto(foto.id)}
+                      disabled={removendoFotoId === foto.id}
+                      className="absolute right-1 top-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] text-white"
+                    >
+                      {removendoFotoId === foto.id ? '...' : '✕'}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Histórico do veículo - inclui finalizadas */}

@@ -4,6 +4,8 @@ export type StatusOrdemServico = 'ORCAMENTO' | 'EM_ANDAMENTO' | 'FINALIZADO' | '
 
 export type TipoPessoa = 'FISICA' | 'JURIDICA';
 
+export type TipoMidia = 'FOTO' | 'VIDEO';
+
 export interface Usuario {
   id: string;
   nome: string;
@@ -38,7 +40,9 @@ export interface Veiculo {
 
 export interface Foto {
   id: string;
+  key: string;
   url: string;
+  tipo: TipoMidia;
   descricao?: string | null;
   createdAt: string;
 }
