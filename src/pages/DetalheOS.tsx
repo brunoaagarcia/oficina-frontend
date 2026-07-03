@@ -75,6 +75,7 @@ export function DetalheOS() {
   const [videoParaCortarUrl, setVideoParaCortarUrl] = useState<string | null>(null);
   const [inicioCorteSeg, setInicioCorteSeg] = useState(0);
   const [cortandoVideo, setCortandoVideo] = useState(false);
+  const videoModalRef = useRef<HTMLVideoElement>(null);
   const [sugestoesItem, setSugestoesItem] = useState<SugestaoMaoDeObra[]>([]);
   const debounceSugestaoRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -738,56 +739,59 @@ export function DetalheOS() {
 
       {/* Modal de corte de vídeo longo */}
       {videoParaCortar && videoParaCortarUrl && (
-        <div className="fixed inset-0 z-50 flex flex-col bg-black">
-          <div className="flex items-center justify-between p-4">
-            <p className="text-sm font-semibold text-white">Cortar vídeo</p>
-            <button
-              onClick={() => setVideoParaCortar(null)}
-              className="text-sm text-white/70"
-              disabled={cortandoVideo}
-            >
-              Cancelar
-            </button>
-          </div>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/80 sm:items-center">
+          <div className="flex w-full max-w-lg flex-col bg-black sm:rounded-xl sm:overflow-hidden">
+            <div className="flex items-center justify-between p-4">
+              <p className="text-sm font-semibold text-white">Cortar vídeo</p>
+              <button
+                onClick={() => setVideoParaCortar(null)}
+                className="text-sm text-white/70"
+                disabled={cortandoVideo}
+              >
+                Cancelar
+              </button>
+            </div>
 
-          <video
-            src={videoParaCortarUrl}
-            className="w-full flex-1 object-contain"
-            controls
-            playsInline
-          />
-
-          <div className="bg-white p-4">
-            <p className="mb-1 text-xs text-ink-soft">
-              Início do trecho (o vídeo terá {MAX_DURACAO_VIDEO_S}s a partir daqui)
-            </p>
-            <input
-              type="range"
-              min={0}
-              max={Math.max(0, Math.floor(videoParaCortar.duracao - MAX_DURACAO_VIDEO_S))}
-              step={0.5}
-              value={inicioCorteSeg}
-              onChange={(e) => setInicioCorteSeg(Number(e.target.value))}
-              className="w-full"
-              disabled={cortandoVideo}
+            <video
+              ref={videoModalRef}
+              src={videoParaCortarUrl}
+              className="max-h-64 w-full object-contain"
+              playsInline
             />
-            <p className="mt-1 text-center text-sm text-ink">
-              {formatarSegundos(inicioCorteSeg)}
-              {' – '}
-              {formatarSegundos(Math.min(inicioCorteSeg + MAX_DURACAO_VIDEO_S, videoParaCortar.duracao))}
-              {' '}
-              <span className="text-ink-soft">
-                ({Math.round(Math.min(MAX_DURACAO_VIDEO_S, videoParaCortar.duracao - inicioCorteSeg))}s)
-              </span>
-            </p>
-            <Botao
-              type="button"
-              onClick={aoEnviarVideoComCorte}
-              disabled={cortandoVideo}
-              className="mt-3 w-full"
-            >
-              {cortandoVideo ? `Cortando... (pode levar até ${MAX_DURACAO_VIDEO_S}s)` : 'Cortar e Enviar'}
-            </Botao>
+
+            <div className="bg-white p-4">
+              <p className="mb-3 text-xs text-ink-soft">
+                Mova o slider para escolher o trecho de {MAX_DURACAO_VIDEO_S}s que quer enviar.
+                O vídeo vai pular para o início do trecho selecionado.
+              </p>
+              <input
+                type="range"
+                min={0}
+                max={Math.max(0, videoParaCortar.duracao - MAX_DURACAO_VIDEO_S)}
+                step={0.5}
+                value={inicioCorteSeg}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  setInicioCorteSeg(v);
+                  if (videoModalRef.current) videoModalRef.current.currentTime = v;
+                }}
+                className="w-full"
+                disabled={cortandoVideo}
+              />
+              <p className="mt-2 text-center text-sm font-medium text-ink">
+                {formatarSegundos(inicioCorteSeg)}
+                {' → '}
+                {formatarSegundos(Math.min(inicioCorteSeg + MAX_DURACAO_VIDEO_S, videoParaCortar.duracao))}
+              </p>
+              <Botao
+                type="button"
+                onClick={aoEnviarVideoComCorte}
+                disabled={cortandoVideo}
+                className="mt-3 w-full"
+              >
+                {cortandoVideo ? `Cortando... (pode levar até ${MAX_DURACAO_VIDEO_S}s)` : 'Cortar e Enviar'}
+              </Botao>
+            </div>
           </div>
         </div>
       )}

@@ -86,9 +86,11 @@ export function cortarVideo(arquivo: File, inicioS: number, fimS: number): Promi
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
       recorder.onstop = () => {
         URL.revokeObjectURL(url);
-        const blob = new Blob(chunks, { type: recorder.mimeType });
-        const ext = recorder.mimeType.includes('mp4') ? '.mp4' : '.webm';
-        resolve(new File([blob], arquivo.name.replace(/\.[^.]+$/, ext), { type: blob.type }));
+        // Codec suffix (e.g. "video/webm;codecs=vp8") é rejeitado pelo @IsIn do backend
+        const cleanType = (recorder.mimeType || 'video/webm').split(';')[0];
+        const blob = new Blob(chunks, { type: cleanType });
+        const ext = cleanType.includes('mp4') ? '.mp4' : '.webm';
+        resolve(new File([blob], arquivo.name.replace(/\.[^.]+$/, ext), { type: cleanType }));
       };
 
       video.currentTime = inicioS;
