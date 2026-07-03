@@ -3,7 +3,7 @@ import type { Foto, TipoMidia } from './types';
 
 const MAX_DIMENSAO = 1600;
 const QUALIDADE_JPEG = 0.82;
-const MAX_DURACAO_VIDEO_S = 16;
+export const MAX_DURACAO_VIDEO_S = 15;
 
 export function solicitarUrlUpload(osId: string, contentType: string) {
   return api<{ uploadUrl: string; key: string; publicUrl: string }>(
@@ -48,21 +48,58 @@ export async function comprimirImagem(arquivo: File): Promise<File> {
   });
 }
 
-// Valida duração do vídeo antes de enviar
-export function validarDuracaoVideo(arquivo: File): Promise<void> {
+export function obterDuracaoVideo(arquivo: File): Promise<number> {
   return new Promise((resolve, reject) => {
     const video = document.createElement('video');
     const url = URL.createObjectURL(arquivo);
-    video.onloadedmetadata = () => {
-      URL.revokeObjectURL(url);
-      if (video.duration > MAX_DURACAO_VIDEO_S) {
-        reject(new Error(`O vídeo deve ter no máximo 15 segundos (esse tem ${Math.round(video.duration)}s).`));
-      } else {
-        resolve();
-      }
-    };
+    video.onloadedmetadata = () => { URL.revokeObjectURL(url); resolve(video.duration); };
     video.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Não foi possível ler o vídeo.')); };
     video.src = url;
+  });
+}
+
+// Corta um trecho do vídeo usando MediaRecorder + captureStream (Chrome/Android).
+// Não funciona no Safari/iOS — nesses casos rejeita com mensagem clara.
+export function cortarVideo(arquivo: File, inicioS: number, fimS: number): Promise<File> {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement('video');
+    video.muted = true;
+    video.playsInline = true;
+    const url = URL.createObjectURL(arquivo);
+    video.src = url;
+
+    video.onloadedmetadata = () => {
+      type VideoWithCapture = HTMLVideoElement & { captureStream?: () => MediaStream };
+      const capturar = (video as VideoWithCapture).captureStream;
+      if (!capturar || typeof MediaRecorder === 'undefined') {
+        URL.revokeObjectURL(url);
+        reject(new Error('Seu dispositivo não suporta corte de vídeo. Grave um vídeo mais curto diretamente na câmera.'));
+        return;
+      }
+
+      const stream = capturar.call(video);
+      const mimeType = MediaRecorder.isTypeSupported('video/webm') ? 'video/webm' : '';
+      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      const chunks: Blob[] = [];
+      const duracaoMs = (fimS - inicioS) * 1000;
+
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+      recorder.onstop = () => {
+        URL.revokeObjectURL(url);
+        const blob = new Blob(chunks, { type: recorder.mimeType });
+        const ext = recorder.mimeType.includes('mp4') ? '.mp4' : '.webm';
+        resolve(new File([blob], arquivo.name.replace(/\.[^.]+$/, ext), { type: blob.type }));
+      };
+
+      video.currentTime = inicioS;
+      video.onseeked = () => {
+        recorder.start();
+        video.play().catch(() => {});
+        setTimeout(() => { video.pause(); recorder.stop(); }, duracaoMs);
+      };
+    };
+
+    video.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Não foi possível processar o vídeo.')); };
   });
 }
 

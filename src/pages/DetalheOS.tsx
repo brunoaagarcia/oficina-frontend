@@ -19,13 +19,19 @@ import {
   removerItemMaoDeObra,
   type SugestaoMaoDeObra,
 } from '../lib/ordensServicoApi';
-import { comprimirImagem, deletarFoto, registrarFoto, solicitarUrlUpload, uploadParaR2, validarDuracaoVideo } from '../lib/fotosApi';
+import { comprimirImagem, cortarVideo, deletarFoto, MAX_DURACAO_VIDEO_S, obterDuracaoVideo, registrarFoto, solicitarUrlUpload, uploadParaR2 } from '../lib/fotosApi';
 import { formatarCentavos, paraCentavos } from '../lib/moeda';
 import type { OrdemServico, StatusOrdemServico, TipoMidia, TipoValorMaoDeObra } from '../lib/types';
 
 const PROXIMO_STATUS: Partial<Record<StatusOrdemServico, { valor: StatusOrdemServico; rotulo: string }>> = {
   EM_ANDAMENTO: { valor: 'FINALIZADO', rotulo: 'Finalizar Ordem de Serviço' },
 };
+
+function formatarSegundos(s: number): string {
+  const min = Math.floor(s / 60);
+  const seg = Math.floor(s % 60);
+  return `${min}:${String(seg).padStart(2, '0')}`;
+}
 
 function formatarDataHora(iso: string) {
   return new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
@@ -63,6 +69,12 @@ export function DetalheOS() {
   // Fotos
   const [uploadandoFoto, setUploadandoFoto] = useState(false);
   const [removendoFotoId, setRemovendoFotoId] = useState<string | null>(null);
+  const [erroFoto, setErroFoto] = useState<string | null>(null);
+  const erroFotoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [videoParaCortar, setVideoParaCortar] = useState<{ arquivo: File; duracao: number } | null>(null);
+  const [videoParaCortarUrl, setVideoParaCortarUrl] = useState<string | null>(null);
+  const [inicioCorteSeg, setInicioCorteSeg] = useState(0);
+  const [cortandoVideo, setCortandoVideo] = useState(false);
   const [sugestoesItem, setSugestoesItem] = useState<SugestaoMaoDeObra[]>([]);
   const debounceSugestaoRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -186,34 +198,69 @@ export function DetalheOS() {
     }
   }
 
+  function mostrarErroFoto(msg: string) {
+    setErroFoto(msg);
+    if (erroFotoTimerRef.current) clearTimeout(erroFotoTimerRef.current);
+    erroFotoTimerRef.current = setTimeout(() => setErroFoto(null), 5000);
+  }
+
+  useEffect(() => {
+    if (!videoParaCortar) { setVideoParaCortarUrl(null); return; }
+    const url = URL.createObjectURL(videoParaCortar.arquivo);
+    setVideoParaCortarUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [videoParaCortar]);
+
+  async function enviarArquivo(arquivoFinal: File, tipo: TipoMidia) {
+    if (!os) return;
+    const { uploadUrl, key } = await solicitarUrlUpload(os.id, arquivoFinal.type);
+    await uploadParaR2(uploadUrl, arquivoFinal);
+    const novaFoto = await registrarFoto(os.id, key, tipo);
+    setOs((prev) => prev ? { ...prev, fotos: [...prev.fotos, novaFoto] } : prev);
+  }
+
   async function aoAdicionarFoto(evento: ChangeEvent<HTMLInputElement>) {
     const arquivo = evento.target.files?.[0];
     if (!arquivo || !os) return;
+    evento.target.value = '';
 
     const isVideo = arquivo.type.startsWith('video/');
     setUploadandoFoto(true);
-    setErro(null);
+    setErroFoto(null);
     try {
       let arquivoFinal = arquivo;
       if (isVideo) {
-        await validarDuracaoVideo(arquivo);
+        const duracao = await obterDuracaoVideo(arquivo);
+        if (duracao > MAX_DURACAO_VIDEO_S) {
+          setVideoParaCortar({ arquivo, duracao });
+          setInicioCorteSeg(0);
+          return;
+        }
       } else {
         arquivoFinal = await comprimirImagem(arquivo);
       }
-      const tipo: TipoMidia = isVideo ? 'VIDEO' : 'FOTO';
-      const { uploadUrl, key } = await solicitarUrlUpload(os.id, arquivoFinal.type);
-      await uploadParaR2(uploadUrl, arquivoFinal);
-      const novaFoto = await registrarFoto(os.id, key, tipo);
-      setOs({ ...os, fotos: [...os.fotos, novaFoto] });
+      await enviarArquivo(arquivoFinal, isVideo ? 'VIDEO' : 'FOTO');
     } catch (e) {
-      setErro(
-        e instanceof ApiError ? e.message
-        : e instanceof Error ? e.message
-        : 'Não foi possível enviar a mídia.',
-      );
+      mostrarErroFoto(e instanceof Error ? e.message : 'Não foi possível enviar a mídia.');
     } finally {
       setUploadandoFoto(false);
-      evento.target.value = '';
+    }
+  }
+
+  async function aoEnviarVideoComCorte() {
+    if (!videoParaCortar || !os) return;
+    const fimCorteSeg = Math.min(inicioCorteSeg + MAX_DURACAO_VIDEO_S, videoParaCortar.duracao);
+    setCortandoVideo(true);
+    try {
+      const cortado = await cortarVideo(videoParaCortar.arquivo, inicioCorteSeg, fimCorteSeg);
+      setVideoParaCortar(null);
+      setUploadandoFoto(true);
+      await enviarArquivo(cortado, 'VIDEO');
+    } catch (e) {
+      mostrarErroFoto(e instanceof Error ? e.message : 'Não foi possível cortar o vídeo.');
+    } finally {
+      setCortandoVideo(false);
+      setUploadandoFoto(false);
     }
   }
 
@@ -618,8 +665,15 @@ export function DetalheOS() {
             )}
           </div>
 
+          {erroFoto && (
+            <div className="mb-3 flex items-start justify-between gap-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+              <span>{erroFoto}</span>
+              <button onClick={() => setErroFoto(null)} className="shrink-0 text-red-400 hover:text-red-700">✕</button>
+            </div>
+          )}
+
           {uploadandoFoto && (
-            <p className="mb-3 text-xs text-ink-soft">Enviando foto...</p>
+            <p className="mb-3 text-xs text-ink-soft">Enviando...</p>
           )}
 
           {os.fotos.length === 0 && !uploadandoFoto ? (
@@ -681,6 +735,62 @@ export function DetalheOS() {
           </div>
         )}
       </main>
+
+      {/* Modal de corte de vídeo longo */}
+      {videoParaCortar && videoParaCortarUrl && (
+        <div className="fixed inset-0 z-50 flex flex-col bg-black">
+          <div className="flex items-center justify-between p-4">
+            <p className="text-sm font-semibold text-white">Cortar vídeo</p>
+            <button
+              onClick={() => setVideoParaCortar(null)}
+              className="text-sm text-white/70"
+              disabled={cortandoVideo}
+            >
+              Cancelar
+            </button>
+          </div>
+
+          <video
+            src={videoParaCortarUrl}
+            className="w-full flex-1 object-contain"
+            controls
+            playsInline
+          />
+
+          <div className="bg-white p-4">
+            <p className="mb-1 text-xs text-ink-soft">
+              Início do trecho (o vídeo terá {MAX_DURACAO_VIDEO_S}s a partir daqui)
+            </p>
+            <input
+              type="range"
+              min={0}
+              max={Math.max(0, Math.floor(videoParaCortar.duracao - MAX_DURACAO_VIDEO_S))}
+              step={0.5}
+              value={inicioCorteSeg}
+              onChange={(e) => setInicioCorteSeg(Number(e.target.value))}
+              className="w-full"
+              disabled={cortandoVideo}
+            />
+            <p className="mt-1 text-center text-sm text-ink">
+              {formatarSegundos(inicioCorteSeg)}
+              {' – '}
+              {formatarSegundos(Math.min(inicioCorteSeg + MAX_DURACAO_VIDEO_S, videoParaCortar.duracao))}
+              {' '}
+              <span className="text-ink-soft">
+                ({Math.round(Math.min(MAX_DURACAO_VIDEO_S, videoParaCortar.duracao - inicioCorteSeg))}s)
+              </span>
+            </p>
+            <Botao
+              type="button"
+              onClick={aoEnviarVideoComCorte}
+              disabled={cortandoVideo}
+              className="mt-3 w-full"
+            >
+              {cortandoVideo ? `Cortando... (pode levar até ${MAX_DURACAO_VIDEO_S}s)` : 'Cortar e Enviar'}
+            </Botao>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
