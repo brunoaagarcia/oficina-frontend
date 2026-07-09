@@ -1,5 +1,5 @@
 import { api, ApiError } from './api';
-import type { Foto, TipoMidia } from './types';
+import type { CategoriaFoto, Foto, TipoMidia } from './types';
 
 const MAX_DIMENSAO = 1600;
 const QUALIDADE_JPEG = 0.82;
@@ -115,10 +115,10 @@ export async function uploadParaR2(uploadUrl: string, arquivo: File): Promise<vo
   if (!resposta.ok) throw new ApiError('Falha ao enviar a mídia para o armazenamento.', resposta.status);
 }
 
-export function registrarFoto(osId: string, key: string, tipo: TipoMidia, descricao?: string) {
+export function registrarFoto(osId: string, key: string, tipo: TipoMidia, descricao?: string, categoria: CategoriaFoto = 'SERVICO') {
   return api<Foto>(`/ordens-servico/${osId}/fotos`, {
     method: 'POST',
-    body: { key, tipo, descricao },
+    body: { key, tipo, descricao, categoria },
   });
 }
 

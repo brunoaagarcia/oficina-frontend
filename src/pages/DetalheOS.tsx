@@ -216,7 +216,7 @@ export function DetalheOS() {
     if (!os) return;
     const { uploadUrl, key } = await solicitarUrlUpload(os.id, arquivoFinal.type);
     await uploadParaR2(uploadUrl, arquivoFinal);
-    const novaFoto = await registrarFoto(os.id, key, tipo);
+    const novaFoto = await registrarFoto(os.id, key, tipo, undefined, 'SERVICO');
     setOs((prev) => prev ? { ...prev, fotos: [...prev.fotos, novaFoto] } : prev);
   }
 
@@ -337,6 +337,8 @@ export function DetalheOS() {
   if (!os) return null;
 
   const proximo = PROXIMO_STATUS[os.status];
+  const fotosEntrada = os.fotos.filter((foto) => foto.categoria === 'ENTRADA');
+  const fotosServico = os.fotos.filter((foto) => foto.categoria !== 'ENTRADA');
 
   return (
     <div className="min-h-screen bg-bg">
@@ -648,10 +650,49 @@ export function DetalheOS() {
           </div>
         </div>
 
-        {/* Fotos */}
+        {/* Fotos de entrada - tiradas na abertura da OS, categoria ENTRADA */}
+        <div className="mb-5 rounded-lg border border-line bg-white p-4">
+          <h2 className="mb-3 text-sm font-semibold text-ink">Fotos de entrada</h2>
+
+          {fotosEntrada.length === 0 ? (
+            <p className="text-sm text-ink-soft">Nenhuma foto de entrada.</p>
+          ) : (
+            <div className="grid grid-cols-3 gap-2">
+              {fotosEntrada.map((foto) => (
+                <div key={foto.id} className="relative">
+                  {foto.tipo === 'VIDEO' ? (
+                    <video
+                      src={foto.url}
+                      className="aspect-square w-full rounded-md object-cover"
+                      controls
+                      preload="metadata"
+                    />
+                  ) : (
+                    <img
+                      src={foto.url}
+                      alt={foto.descricao ?? 'Foto'}
+                      className="aspect-square w-full rounded-md object-cover"
+                    />
+                  )}
+                  {podeEditar && (
+                    <button
+                      onClick={() => aoRemoverFoto(foto.id)}
+                      disabled={removendoFotoId === foto.id}
+                      className="absolute right-1 top-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] text-white"
+                    >
+                      {removendoFotoId === foto.id ? '...' : '✕'}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Fotos do serviço - adicionadas ao longo do atendimento, categoria SERVICO */}
         <div className="mb-5 rounded-lg border border-line bg-white p-4">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-ink">Fotos</h2>
+            <h2 className="text-sm font-semibold text-ink">Fotos do serviço</h2>
             {podeEditar && (
               <label className="cursor-pointer text-xs font-medium text-accent-ink underline">
                 + Adicionar
@@ -677,11 +718,11 @@ export function DetalheOS() {
             <p className="mb-3 text-xs text-ink-soft">Enviando...</p>
           )}
 
-          {os.fotos.length === 0 && !uploadandoFoto ? (
-            <p className="text-sm text-ink-soft">Nenhuma foto ainda.</p>
+          {fotosServico.length === 0 && !uploadandoFoto ? (
+            <p className="text-sm text-ink-soft">Nenhuma foto do serviço ainda.</p>
           ) : (
             <div className="grid grid-cols-3 gap-2">
-              {os.fotos.map((foto) => (
+              {fotosServico.map((foto) => (
                 <div key={foto.id} className="relative">
                   {foto.tipo === 'VIDEO' ? (
                     <video

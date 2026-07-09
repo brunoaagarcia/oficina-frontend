@@ -6,6 +6,8 @@ export type TipoPessoa = 'FISICA' | 'JURIDICA';
 
 export type TipoMidia = 'FOTO' | 'VIDEO';
 
+export type CategoriaFoto = 'ENTRADA' | 'SERVICO';
+
 export interface Usuario {
   id: string;
   nome: string;
@@ -43,6 +45,7 @@ export interface Foto {
   key: string;
   url: string;
   tipo: TipoMidia;
+  categoria: CategoriaFoto;
   descricao?: string | null;
   createdAt: string;
 }
@@ -106,5 +109,4 @@ export interface AbrirOrdemServicoPayload {
   enderecoBairroCliente?: string;
   enderecoCidadeCliente?: string;
   enderecoEstadoCliente?: string;
-  enderecoCepCliente?: string;
 }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Topbar } from '../components/Topbar';
 import { Campo } from '../components/Campo';
@@ -6,8 +6,17 @@ import { Botao } from '../components/Botao';
 import { BotaoVoltar } from '../components/BotaoVoltar';
 import { buscarClientes, listarVeiculosDoCliente } from '../lib/clientesApi';
 import { abrirOrdemServico } from '../lib/ordensServicoApi';
+import { comprimirImagem, registrarFoto, solicitarUrlUpload, uploadParaR2 } from '../lib/fotosApi';
 import { ApiError } from '../lib/api';
-import type { Cliente, TipoPessoa, Veiculo } from '../lib/types';
+import type { Cliente, Foto, OrdemServico, TipoPessoa, Veiculo } from '../lib/types';
+
+const CHECKLIST_FOTOS_ENTRADA = [
+  { chave: 'frente', rotulo: 'Frente' },
+  { chave: 'traseira', rotulo: 'Traseira' },
+  { chave: 'lateral_esquerda', rotulo: 'Lateral esquerda' },
+  { chave: 'lateral_direita', rotulo: 'Lateral direita' },
+  { chave: 'area_problema', rotulo: 'Área do problema' },
+] as const;
 
 export function AbrirOS() {
   const navegar = useNavigate();
@@ -29,7 +38,6 @@ export function AbrirOS() {
   const [enderecoBairroCliente, setEnderecoBairroCliente] = useState('');
   const [enderecoCidadeCliente, setEnderecoCidadeCliente] = useState('');
   const [enderecoEstadoCliente, setEnderecoEstadoCliente] = useState('');
-  const [enderecoCepCliente, setEnderecoCepCliente] = useState('');
 
   // Etapa 2: carro do cliente (lista, ou cadastro de carro novo)
   const [veiculosDoCliente, setVeiculosDoCliente] = useState<Veiculo[] | null>(null);
@@ -48,6 +56,12 @@ export function AbrirOS() {
 
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+
+  // Etapa 4: fotos de entrada - aparece só depois da OS já criada
+  const [osCriada, setOsCriada] = useState<OrdemServico | null>(null);
+  const [fotosEntrada, setFotosEntrada] = useState<Record<string, Foto>>({});
+  const [enviandoFotoChave, setEnviandoFotoChave] = useState<string | null>(null);
+  const [erroFotoEntrada, setErroFotoEntrada] = useState<string | null>(null);
 
   const clienteResolvido = clienteSelecionado || clienteNovoConfirmado;
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -130,7 +144,6 @@ export function AbrirOS() {
     setEnderecoBairroCliente('');
     setEnderecoCidadeCliente('');
     setEnderecoEstadoCliente('');
-    setEnderecoCepCliente('');
     setVeiculosDoCliente(null);
     setVeiculoSelecionado(null);
     setMostrarNovoVeiculo(false);
@@ -185,16 +198,100 @@ export function AbrirOS() {
                     enderecoBairroCliente: enderecoBairroCliente || undefined,
                     enderecoCidadeCliente: enderecoCidadeCliente || undefined,
                     enderecoEstadoCliente: enderecoEstadoCliente || undefined,
-                    enderecoCepCliente: enderecoCepCliente || undefined,
                   }),
             }),
       });
-      navegar(`/os/${os.id}`);
+      setOsCriada(os);
     } catch (e) {
       setErro(e instanceof ApiError ? e.message : 'Não foi possível abrir a OS.');
     } finally {
       setEnviando(false);
     }
+  }
+
+  async function aoAdicionarFotoEntrada(chave: string, evento: ChangeEvent<HTMLInputElement>) {
+    const arquivo = evento.target.files?.[0];
+    evento.target.value = '';
+    if (!arquivo || !osCriada) return;
+
+    setEnviandoFotoChave(chave);
+    setErroFotoEntrada(null);
+    try {
+      const comprimido = await comprimirImagem(arquivo);
+      const { uploadUrl, key } = await solicitarUrlUpload(osCriada.id, comprimido.type);
+      await uploadParaR2(uploadUrl, comprimido);
+      const novaFoto = await registrarFoto(osCriada.id, key, 'FOTO', undefined, 'ENTRADA');
+      setFotosEntrada((prev) => ({ ...prev, [chave]: novaFoto }));
+    } catch (e) {
+      setErroFotoEntrada(e instanceof Error ? e.message : 'Não foi possível enviar a foto.');
+    } finally {
+      setEnviandoFotoChave(null);
+    }
+  }
+
+  if (osCriada) {
+    const totalFotosEntrada = Object.keys(fotosEntrada).length;
+    return (
+      <div className="min-h-screen bg-bg">
+        <Topbar />
+
+        <main className="mx-auto max-w-xl px-4 py-6 sm:px-6">
+          <h1 className="mb-1 font-display text-xl font-bold text-ink">Fotos de entrada</h1>
+          <p className="mb-5 text-sm text-ink-soft">
+            Registre o estado do veículo antes de iniciar o serviço. Pelo menos 1 foto é obrigatória.
+          </p>
+
+          {erroFotoEntrada && (
+            <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erroFotoEntrada}</p>
+          )}
+
+          <div className="flex flex-col gap-2">
+            {CHECKLIST_FOTOS_ENTRADA.map((item) => {
+              const foto = fotosEntrada[item.chave];
+              const enviandoEssaFoto = enviandoFotoChave === item.chave;
+              return (
+                <div key={item.chave} className="flex items-center gap-3 rounded-lg border border-line bg-white p-3">
+                  {foto ? (
+                    <img src={foto.url} alt={item.rotulo} className="h-14 w-14 shrink-0 rounded-md object-cover" />
+                  ) : (
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-bg text-ink-soft">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M4 7h3l2-2h6l2 2h3v12H4z" />
+                        <circle cx="12" cy="13" r="3" />
+                      </svg>
+                    </div>
+                  )}
+                  <div className="flex-1">
+                    <p className="text-sm font-medium text-ink">{item.rotulo}</p>
+                    <p className="text-xs text-ink-soft">{foto ? 'Foto adicionada' : 'Sem foto ainda'}</p>
+                  </div>
+                  <label className="shrink-0 cursor-pointer text-xs font-medium text-accent-ink underline">
+                    {enviandoEssaFoto ? 'Enviando...' : foto ? 'Trocar' : 'Adicionar'}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/heic"
+                      capture="environment"
+                      className="hidden"
+                      onChange={(e) => aoAdicionarFotoEntrada(item.chave, e)}
+                      disabled={enviandoEssaFoto}
+                    />
+                  </label>
+                </div>
+              );
+            })}
+          </div>
+
+          <Botao
+            type="button"
+            onClick={() => navegar(`/os/${osCriada.id}`)}
+            disabled={totalFotosEntrada === 0}
+            className="mt-5 w-full"
+          >
+            {totalFotosEntrada === 0 ? 'Adicione ao menos 1 foto para concluir' : 'Concluir'}
+          </Botao>
+        </main>
+      </div>
+    );
   }
 
   return (
@@ -285,10 +382,7 @@ export function AbrirOS() {
                       <Campo rotulo="Bairro" id="enderecoBairroCliente" value={enderecoBairroCliente} onChange={(e) => setEnderecoBairroCliente(e.target.value)} />
                       <Campo rotulo="Cidade" id="enderecoCidadeCliente" value={enderecoCidadeCliente} onChange={(e) => setEnderecoCidadeCliente(e.target.value)} />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Campo rotulo="Estado (UF)" id="enderecoEstadoCliente" maxLength={2} value={enderecoEstadoCliente} onChange={(e) => setEnderecoEstadoCliente(e.target.value.toUpperCase())} />
-                      <Campo rotulo="CEP" id="enderecoCepCliente" value={enderecoCepCliente} onChange={(e) => setEnderecoCepCliente(e.target.value)} />
-                    </div>
+                    <Campo rotulo="Estado (UF)" id="enderecoEstadoCliente" maxLength={2} value={enderecoEstadoCliente} onChange={(e) => setEnderecoEstadoCliente(e.target.value.toUpperCase())} />
                     <Botao
                       type="button"
                       onClick={confirmarClienteNovo}
