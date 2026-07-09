@@ -19,7 +19,7 @@ import {
   removerItemMaoDeObra,
   type SugestaoMaoDeObra,
 } from '../lib/ordensServicoApi';
-import { comprimirImagem, cortarVideo, deletarFoto, MAX_DURACAO_VIDEO_S, obterDuracaoVideo, registrarFoto, solicitarUrlUpload, uploadParaR2 } from '../lib/fotosApi';
+import { atualizarLegendaFoto, comprimirImagem, cortarVideo, deletarFoto, MAX_DURACAO_VIDEO_S, obterDuracaoVideo, registrarFoto, solicitarUrlUpload, uploadParaR2 } from '../lib/fotosApi';
 import { formatarCentavos, paraCentavos } from '../lib/moeda';
 import type { OrdemServico, StatusOrdemServico, TipoMidia, TipoValorMaoDeObra } from '../lib/types';
 
@@ -62,6 +62,9 @@ export function DetalheOS() {
   const [uploadandoFoto, setUploadandoFoto] = useState(false);
   const [removendoFotoId, setRemovendoFotoId] = useState<string | null>(null);
   const [erroFoto, setErroFoto] = useState<string | null>(null);
+  const [editandoLegendaId, setEditandoLegendaId] = useState<string | null>(null);
+  const [legendaTexto, setLegendaTexto] = useState('');
+  const salvandoLegendaRef = useRef(false);
   const erroFotoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [videoParaCortar, setVideoParaCortar] = useState<{ arquivo: File; duracao: number } | null>(null);
   const [videoParaCortarUrl, setVideoParaCortarUrl] = useState<string | null>(null);
@@ -261,6 +264,29 @@ export function DetalheOS() {
     }
   }
 
+  function iniciarEdicaoLegenda(foto: { id: string; descricao?: string | null }) {
+    setEditandoLegendaId(foto.id);
+    setLegendaTexto(foto.descricao ?? '');
+  }
+
+  async function salvarLegenda(fotoId: string) {
+    if (salvandoLegendaRef.current || !os) return;
+    salvandoLegendaRef.current = true;
+    setEditandoLegendaId(null);
+    try {
+      const fotoAtualizada = await atualizarLegendaFoto(os.id, fotoId, legendaTexto.trim());
+      setOs((prev) =>
+        prev
+          ? { ...prev, fotos: prev.fotos.map((f) => (f.id === fotoId ? { ...f, descricao: fotoAtualizada.descricao } : f)) }
+          : prev,
+      );
+    } catch (e) {
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível salvar a legenda.');
+    } finally {
+      salvandoLegendaRef.current = false;
+    }
+  }
+
   async function aoRemoverFoto(fotoId: string) {
     if (!os || !window.confirm('Remover esta foto?')) return;
     setRemovendoFotoId(fotoId);
@@ -397,24 +423,55 @@ export function DetalheOS() {
             ) : (
               <div className="grid grid-cols-3 gap-2">
                 {fotosEntrada.map((foto) => (
-                  <div key={foto.id} className="relative">
-                    <img
-                      src={foto.url}
-                      alt={foto.descricao ?? 'Foto de entrada'}
-                      className="aspect-square w-full rounded-md object-cover"
-                    />
-                    {podeEditar && (
+                  <div key={foto.id}>
+                    <div className="relative">
+                      <img
+                        src={foto.url}
+                        alt={foto.descricao ?? 'Foto de entrada'}
+                        className="aspect-square w-full rounded-md object-cover"
+                      />
+                      {podeEditar && (
+                        <button
+                          onClick={() => aoRemoverFoto(foto.id)}
+                          disabled={removendoFotoId === foto.id}
+                          className="absolute right-1 top-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] text-white"
+                        >
+                          {removendoFotoId === foto.id ? '...' : '✕'}
+                        </button>
+                      )}
+                    </div>
+                    {editandoLegendaId === foto.id ? (
+                      <input
+                        type="text"
+                        value={legendaTexto}
+                        maxLength={100}
+                        autoFocus
+                        onChange={(e) => setLegendaTexto(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') { e.preventDefault(); salvarLegenda(foto.id); }
+                          if (e.key === 'Escape') { e.preventDefault(); setEditandoLegendaId(null); }
+                        }}
+                        onBlur={() => salvarLegenda(foto.id)}
+                        className="mt-1 w-full rounded border border-line bg-white px-1.5 py-0.5 text-center text-[11px] text-ink focus:border-accent focus:outline-none"
+                      />
+                    ) : foto.descricao ? (
                       <button
-                        onClick={() => aoRemoverFoto(foto.id)}
-                        disabled={removendoFotoId === foto.id}
-                        className="absolute right-1 top-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] text-white"
+                        type="button"
+                        onClick={podeEditar ? () => iniciarEdicaoLegenda(foto) : undefined}
+                        disabled={!podeEditar}
+                        className={`mt-1 line-clamp-2 w-full text-center text-[11px] text-ink-soft ${podeEditar ? 'cursor-text hover:text-ink' : ''}`}
                       >
-                        {removendoFotoId === foto.id ? '...' : '✕'}
+                        {foto.descricao}
                       </button>
-                    )}
-                    {foto.descricao && (
-                      <p className="mt-1 truncate text-center text-[10px] text-ink-soft">{foto.descricao}</p>
-                    )}
+                    ) : podeEditar ? (
+                      <button
+                        type="button"
+                        onClick={() => iniciarEdicaoLegenda(foto)}
+                        className="mt-1 w-full text-center text-[11px] text-ink-soft/40 hover:text-ink-soft"
+                      >
+                        + legenda
+                      </button>
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -493,21 +550,55 @@ export function DetalheOS() {
           ) : (
             <div className="grid grid-cols-3 gap-2">
               {fotosServico.map((foto) => (
-                <div key={foto.id} className="relative">
-                  {foto.tipo === 'VIDEO' ? (
-                    <video src={foto.url} className="aspect-square w-full rounded-md object-cover" controls preload="metadata" />
-                  ) : (
-                    <img src={foto.url} alt={foto.descricao ?? 'Foto'} className="aspect-square w-full rounded-md object-cover" />
-                  )}
-                  {podeEditar && (
+                <div key={foto.id}>
+                  <div className="relative">
+                    {foto.tipo === 'VIDEO' ? (
+                      <video src={foto.url} className="aspect-square w-full rounded-md object-cover" controls preload="metadata" />
+                    ) : (
+                      <img src={foto.url} alt={foto.descricao ?? 'Foto'} className="aspect-square w-full rounded-md object-cover" />
+                    )}
+                    {podeEditar && (
+                      <button
+                        onClick={() => aoRemoverFoto(foto.id)}
+                        disabled={removendoFotoId === foto.id}
+                        className="absolute right-1 top-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] text-white"
+                      >
+                        {removendoFotoId === foto.id ? '...' : '✕'}
+                      </button>
+                    )}
+                  </div>
+                  {editandoLegendaId === foto.id ? (
+                    <input
+                      type="text"
+                      value={legendaTexto}
+                      maxLength={100}
+                      autoFocus
+                      onChange={(e) => setLegendaTexto(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') { e.preventDefault(); salvarLegenda(foto.id); }
+                        if (e.key === 'Escape') { e.preventDefault(); setEditandoLegendaId(null); }
+                      }}
+                      onBlur={() => salvarLegenda(foto.id)}
+                      className="mt-1 w-full rounded border border-line bg-white px-1.5 py-0.5 text-center text-[11px] text-ink focus:border-accent focus:outline-none"
+                    />
+                  ) : foto.descricao ? (
                     <button
-                      onClick={() => aoRemoverFoto(foto.id)}
-                      disabled={removendoFotoId === foto.id}
-                      className="absolute right-1 top-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] text-white"
+                      type="button"
+                      onClick={podeEditar ? () => iniciarEdicaoLegenda(foto) : undefined}
+                      disabled={!podeEditar}
+                      className={`mt-1 line-clamp-2 w-full text-center text-[11px] text-ink-soft ${podeEditar ? 'cursor-text hover:text-ink' : ''}`}
                     >
-                      {removendoFotoId === foto.id ? '...' : '✕'}
+                      {foto.descricao}
                     </button>
-                  )}
+                  ) : podeEditar ? (
+                    <button
+                      type="button"
+                      onClick={() => iniciarEdicaoLegenda(foto)}
+                      className="mt-1 w-full text-center text-[11px] text-ink-soft/40 hover:text-ink-soft"
+                    >
+                      + legenda
+                    </button>
+                  ) : null}
                 </div>
               ))}
             </div>

@@ -122,6 +122,13 @@ export function registrarFoto(osId: string, key: string, tipo: TipoMidia, descri
   });
 }
 
+export function atualizarLegendaFoto(osId: string, fotoId: string, descricao: string) {
+  return api<Foto>(`/ordens-servico/${osId}/fotos/${fotoId}`, {
+    method: 'PATCH',
+    body: { descricao },
+  });
+}
+
 export function deletarFoto(osId: string, fotoId: string) {
   return api<void>(`/ordens-servico/${osId}/fotos/${fotoId}`, { method: 'DELETE' });
 }
