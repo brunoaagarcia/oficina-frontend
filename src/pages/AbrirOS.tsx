@@ -5,7 +5,7 @@ import { Campo } from '../components/Campo';
 import { Botao } from '../components/Botao';
 import { BotaoVoltar } from '../components/BotaoVoltar';
 import { buscarClientes } from '../lib/clientesApi';
-import { buscarVeiculoPorPlaca } from '../lib/veiculosApi';
+import { buscarVeiculoPorPlaca, buscarVeiculosPorTermo } from '../lib/veiculosApi';
 import { abrirOrdemServico } from '../lib/ordensServicoApi';
 import { comprimirImagem, registrarFoto, solicitarUrlUpload, uploadParaR2 } from '../lib/fotosApi';
 import { ApiError } from '../lib/api';
@@ -72,6 +72,23 @@ export function AbrirOS() {
     (veiculoEncontrado === null && clienteResolvido && veiculoNovoResolvido);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceRefPlaca = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [sugestoesPlaca, setSugestoesPlaca] = useState<Veiculo[]>([]);
+
+  useEffect(() => {
+    if (veiculoBuscado || placa.length < 2) {
+      setSugestoesPlaca([]);
+      return;
+    }
+    if (debounceRefPlaca.current) clearTimeout(debounceRefPlaca.current);
+    debounceRefPlaca.current = setTimeout(() => {
+      buscarVeiculosPorTermo(placa)
+        .then(({ veiculos }) => setSugestoesPlaca(veiculos))
+        .catch(() => setSugestoesPlaca([]));
+    }, 300);
+    return () => { if (debounceRefPlaca.current) clearTimeout(debounceRefPlaca.current); };
+  }, [placa, veiculoBuscado]);
 
   useEffect(() => {
     if (veiculoEncontrado !== null || clienteResolvido) {
@@ -88,6 +105,12 @@ export function AbrirOS() {
     }, 300);
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [nomeBusca, clienteResolvido, veiculoEncontrado]);
+
+  function selecionarSugestaoPorPlaca(veiculo: Veiculo) {
+    setPlaca(veiculo.placa);
+    setVeiculoEncontrado(veiculo);
+    setSugestoesPlaca([]);
+  }
 
   async function buscarPlaca() {
     const placaNorm = placa.trim().toUpperCase();
@@ -339,7 +362,7 @@ export function AbrirOS() {
 
             {!veiculoBuscado ? (
               <div className="flex items-end gap-2">
-                <div className="flex-1">
+                <div className="relative flex-1">
                   <Campo
                     rotulo="Placa"
                     id="placa"
@@ -351,6 +374,23 @@ export function AbrirOS() {
                     autoComplete="off"
                     maxLength={8}
                   />
+                  {sugestoesPlaca.length > 0 && (
+                    <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-line bg-white shadow-md">
+                      {sugestoesPlaca.map((v) => (
+                        <li key={v.id}>
+                          <button
+                            type="button"
+                            onClick={() => selecionarSugestaoPorPlaca(v)}
+                            className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-bg"
+                          >
+                            <span className="font-mono text-sm font-bold tracking-widest text-ink">{v.placa}</span>
+                            <span className="text-sm text-ink">{v.modelo}</span>
+                            <span className="ml-auto text-xs text-ink-soft">{v.cliente.nome}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
                 <button
                   type="button"

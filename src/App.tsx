@@ -8,6 +8,7 @@ import { AbrirOS } from './pages/AbrirOS';
 import { DetalheOS } from './pages/DetalheOS';
 import { Usuarios } from './pages/Usuarios';
 import { Painel } from './pages/Painel';
+import { Backup } from './pages/Backup';
 
 export default function App() {
   return (
@@ -60,6 +61,14 @@ export default function App() {
             element={
               <RotaProtegida>
                 <Painel />
+              </RotaProtegida>
+            }
+          />
+          <Route
+            path="/backup"
+            element={
+              <RotaProtegida>
+                <Backup />
               </RotaProtegida>
             }
           />

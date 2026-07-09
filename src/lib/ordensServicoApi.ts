@@ -59,3 +59,28 @@ export function buscarSugestoesMaoDeObra(termo: string, modelo?: string) {
   if (modelo) params.set('modelo', modelo);
   return api<SugestaoMaoDeObra[]>(`/ordens-servico/itens-mao-de-obra/sugestoes?${params.toString()}`);
 }
+
+export interface FotoArquivavel {
+  id: string;
+  url: string;
+  key: string;
+  tipo: 'FOTO' | 'VIDEO';
+  categoria: 'ENTRADA' | 'SERVICO';
+  descricao: string | null;
+}
+
+export interface OSArquivavel {
+  id: string;
+  status: string;
+  finalizadoEm: string | null;
+  veiculo: { placa: string; modelo: string; cliente: { nome: string } };
+  fotos: FotoArquivavel[];
+}
+
+export function listarArquivaveis() {
+  return api<OSArquivavel[]>('/ordens-servico/arquivaveis');
+}
+
+export function removerFotosDeOS(id: string) {
+  return api<{ removidos: number }>(`/ordens-servico/${id}/fotos`, { method: 'DELETE' });
+}
