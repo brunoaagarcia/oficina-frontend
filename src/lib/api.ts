@@ -48,9 +48,9 @@ export async function api<T>(caminho: string, opcoes: Opcoes = {}): Promise<T> {
     throw new ApiError('Não foi possível conectar ao servidor. Verifique sua internet.', 0);
   }
 
-  // Sessão expirada ou inválida - limpa o token guardado.
   if (resposta.status === 401) {
     limparToken();
+    window.dispatchEvent(new Event('oficina:sessao-expirada'));
   }
 
   if (!resposta.ok) {

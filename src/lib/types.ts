@@ -14,6 +14,7 @@ export interface Usuario {
   login: string;
   papel: PapelUsuario;
   ativo?: boolean;
+  senhaProvisoria?: boolean;
 }
 
 export interface Cliente {
@@ -89,6 +90,7 @@ export interface OrdemServico {
   fotos: Foto[];
   observacoes: Observacao[];
   itensMaoDeObra: ItemMaoDeObra[];
+  totalFotosEntrada?: number;
 }
 
 // Dados pra abrir uma OS - tudo do cliente/carro é opcional porque só

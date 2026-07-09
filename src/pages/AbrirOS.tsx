@@ -5,6 +5,7 @@ import { Campo } from '../components/Campo';
 import { Botao } from '../components/Botao';
 import { BotaoVoltar } from '../components/BotaoVoltar';
 import { buscarClientes, listarVeiculosDoCliente } from '../lib/clientesApi';
+import { buscarVeiculoPorPlaca } from '../lib/veiculosApi';
 import { abrirOrdemServico } from '../lib/ordensServicoApi';
 import { comprimirImagem, registrarFoto, solicitarUrlUpload, uploadParaR2 } from '../lib/fotosApi';
 import { ApiError } from '../lib/api';
@@ -21,13 +22,18 @@ const CHECKLIST_FOTOS_ENTRADA = [
 export function AbrirOS() {
   const navegar = useNavigate();
 
-  // Etapa 1: cliente (busca por nome, com autocomplete)
+  // Passo 0: placa
+  const [placa, setPlaca] = useState('');
+  const [buscandoPlaca, setBuscandoPlaca] = useState(false);
+  const [veiculoEncontrado, setVeiculoEncontrado] = useState<Veiculo | null | undefined>(undefined);
+  const [veiculoConfirmado, setVeiculoConfirmado] = useState(false);
+  const veiculoBuscado = veiculoEncontrado !== undefined;
+
+  // Passo 1b: cliente (quando veiculo não existe)
   const [nomeBusca, setNomeBusca] = useState('');
   const [sugestoesClientes, setSugestoesClientes] = useState<Cliente[]>([]);
   const [buscandoClientes, setBuscandoClientes] = useState(false);
   const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
-
-  // Cadastro de cliente novo (aparece quando não acha o nome digitado)
   const [cadastrandoCliente, setCadastrandoCliente] = useState(false);
   const [clienteNovoConfirmado, setClienteNovoConfirmado] = useState(false);
   const [cpfCnpjCliente, setCpfCnpjCliente] = useState('');
@@ -39,38 +45,36 @@ export function AbrirOS() {
   const [enderecoCidadeCliente, setEnderecoCidadeCliente] = useState('');
   const [enderecoEstadoCliente, setEnderecoEstadoCliente] = useState('');
 
-  // Etapa 2: carro do cliente (lista, ou cadastro de carro novo)
-  const [veiculosDoCliente, setVeiculosDoCliente] = useState<Veiculo[] | null>(null);
-  const [carregandoVeiculos, setCarregandoVeiculos] = useState(false);
-  const [veiculoSelecionado, setVeiculoSelecionado] = useState<Veiculo | null>(null);
-  const [mostrarNovoVeiculo, setMostrarNovoVeiculo] = useState(false);
-  const [veiculoNovoConfirmado, setVeiculoNovoConfirmado] = useState(false);
-  const [placaNova, setPlacaNova] = useState('');
+  // Passo 1b: veiculo novo (quando não existe)
   const [modeloNovo, setModeloNovo] = useState('');
   const [marcaNova, setMarcaNova] = useState('');
   const [anoNovo, setAnoNovo] = useState('');
+  const [veiculoNovoConfirmado, setVeiculoNovoConfirmado] = useState(false);
 
-  // Etapa 3: serviço
+  // Passo 2: serviço
   const [kmRegistrado, setKmRegistrado] = useState('');
   const [queixaInicial, setQueixaInicial] = useState('');
 
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  // Etapa 4: fotos de entrada - aparece só depois da OS já criada
+  // Passo 3: fotos (após OS criada)
   const [osCriada, setOsCriada] = useState<OrdemServico | null>(null);
   const [fotosEntrada, setFotosEntrada] = useState<Record<string, Foto>>({});
   const [enviandoFotoChave, setEnviandoFotoChave] = useState<string | null>(null);
   const [erroFotoEntrada, setErroFotoEntrada] = useState<string | null>(null);
 
-  const clienteResolvido = clienteSelecionado || clienteNovoConfirmado;
+  const clienteResolvido = clienteSelecionado !== null || clienteNovoConfirmado;
+  const veiculoNovoResolvido = veiculoNovoConfirmado;
+
+  const mostraServico =
+    (veiculoEncontrado !== null && veiculoEncontrado !== undefined && veiculoConfirmado) ||
+    (veiculoEncontrado === null && clienteResolvido && veiculoNovoResolvido);
+
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Busca clientes por nome, com debounce. Roda mesmo com o campo vazio -
-  // assim a lista de clientes já cadastrados aparece de cara, sem precisar
-  // digitar nada (mais fácil de selecionar do que escrever, principalmente no celular).
   useEffect(() => {
-    if (clienteResolvido) {
+    if (veiculoEncontrado !== null || clienteResolvido) {
       setSugestoesClientes([]);
       return;
     }
@@ -82,52 +86,72 @@ export function AbrirOS() {
         .catch(() => setSugestoesClientes([]))
         .finally(() => setBuscandoClientes(false));
     }, 300);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [nomeBusca, clienteResolvido]);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [nomeBusca, clienteResolvido, veiculoEncontrado]);
+
+  async function buscarPlaca() {
+    const placaNorm = placa.trim().toUpperCase();
+    if (!placaNorm) return;
+    setBuscandoPlaca(true);
+    setErro(null);
+    try {
+      const { veiculo } = await buscarVeiculoPorPlaca(placaNorm);
+      setVeiculoEncontrado(veiculo);
+    } catch {
+      setErro('Não foi possível verificar a placa. Tente de novo.');
+    } finally {
+      setBuscandoPlaca(false);
+    }
+  }
+
+  function aoApertarTeclaPlaca(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') { e.preventDefault(); buscarPlaca(); }
+  }
+
+  function voltarParaPlaca() {
+    setVeiculoEncontrado(undefined);
+    setVeiculoConfirmado(false);
+    setClienteSelecionado(null);
+    setCadastrandoCliente(false);
+    setClienteNovoConfirmado(false);
+    setNomeBusca('');
+    setCpfCnpjCliente('');
+    setTipoPessoaCliente('FISICA');
+    setTelefoneCliente('');
+    setEnderecoRuaCliente('');
+    setEnderecoNumeroCliente('');
+    setEnderecoBairroCliente('');
+    setEnderecoCidadeCliente('');
+    setEnderecoEstadoCliente('');
+    setModeloNovo('');
+    setMarcaNova('');
+    setAnoNovo('');
+    setVeiculoNovoConfirmado(false);
+    setKmRegistrado('');
+    setQueixaInicial('');
+    setErro(null);
+  }
 
   function selecionarCliente(cliente: Cliente) {
     setClienteSelecionado(cliente);
     setSugestoesClientes([]);
-    setCarregandoVeiculos(true);
-    listarVeiculosDoCliente(cliente.id)
-      .then((veiculos) => {
-        setVeiculosDoCliente(veiculos);
-        // Cliente sem nenhum carro ainda -> já abre direto o cadastro de carro novo
-        if (veiculos.length === 0) setMostrarNovoVeiculo(true);
-      })
-      .catch(() => setVeiculosDoCliente([]))
-      .finally(() => setCarregandoVeiculos(false));
   }
 
-  // Clicar na seta (ou apertar Enter) com o nome digitado: se bater exatamente
-  // com algum cliente já cadastrado, seleciona ele; se não, já abre o
-  // cadastro de cliente novo direto, sem precisar clicar em outro link.
   function avancarCliente() {
     const nome = nomeBusca.trim();
     if (!nome) return;
-
-    const correspondenciaExata = sugestoesClientes.find((c) => c.nome.toLowerCase() === nome.toLowerCase());
-    if (correspondenciaExata) {
-      selecionarCliente(correspondenciaExata);
-    } else {
-      setCadastrandoCliente(true);
-    }
+    const exato = sugestoesClientes.find((c) => c.nome.toLowerCase() === nome.toLowerCase());
+    if (exato) { selecionarCliente(exato); }
+    else { setCadastrandoCliente(true); }
   }
 
-  function aoApertarTecla(evento: KeyboardEvent<HTMLInputElement>) {
-    if (evento.key === 'Enter') {
-      evento.preventDefault();
-      avancarCliente();
-    }
+  function aoApertarTeclaCliente(e: KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Enter') { e.preventDefault(); avancarCliente(); }
   }
 
   function confirmarClienteNovo() {
     if (!nomeBusca.trim() || !cpfCnpjCliente.trim() || !telefoneCliente.trim()) return;
     setClienteNovoConfirmado(true);
-    setVeiculosDoCliente([]); // cliente novo nunca tem carro cadastrado ainda
-    setMostrarNovoVeiculo(true);
   }
 
   function trocarCliente() {
@@ -144,43 +168,22 @@ export function AbrirOS() {
     setEnderecoBairroCliente('');
     setEnderecoCidadeCliente('');
     setEnderecoEstadoCliente('');
-    setVeiculosDoCliente(null);
-    setVeiculoSelecionado(null);
-    setMostrarNovoVeiculo(false);
     setVeiculoNovoConfirmado(false);
-    setPlacaNova('');
     setModeloNovo('');
     setMarcaNova('');
     setAnoNovo('');
   }
-
-  function trocarVeiculo() {
-    setVeiculoSelecionado(null);
-    setMostrarNovoVeiculo(false);
-    setVeiculoNovoConfirmado(false);
-    setPlacaNova('');
-    setModeloNovo('');
-    setMarcaNova('');
-    setAnoNovo('');
-  }
-
-  // IMPORTANTE: o carro novo só conta como "resolvido" depois de clicar em
-  // "Confirmar carro" - nunca automaticamente enquanto a pessoa ainda está
-  // digitando o modelo/ano (isso é o que causava o avanço sozinho no meio da digitação).
-  const veiculoResolvido = veiculoSelecionado || (mostrarNovoVeiculo && veiculoNovoConfirmado);
 
   async function aoEnviar(evento: FormEvent) {
     evento.preventDefault();
     setErro(null);
     setEnviando(true);
     try {
-      const placa = veiculoSelecionado ? veiculoSelecionado.placa : placaNova.trim();
-
       const os = await abrirOrdemServico({
-        placa,
+        placa: placa.trim().toUpperCase(),
         kmRegistrado: kmRegistrado ? Number(kmRegistrado) : undefined,
         queixaInicial: queixaInicial || undefined,
-        ...(veiculoSelecionado
+        ...(veiculoEncontrado
           ? {}
           : {
               modelo: modeloNovo,
@@ -209,7 +212,7 @@ export function AbrirOS() {
     }
   }
 
-  async function aoAdicionarFotoEntrada(chave: string, evento: ChangeEvent<HTMLInputElement>) {
+  async function aoAdicionarFotoEntrada(chave: string, rotulo: string, evento: ChangeEvent<HTMLInputElement>) {
     const arquivo = evento.target.files?.[0];
     evento.target.value = '';
     if (!arquivo || !osCriada) return;
@@ -220,7 +223,7 @@ export function AbrirOS() {
       const comprimido = await comprimirImagem(arquivo);
       const { uploadUrl, key } = await solicitarUrlUpload(osCriada.id, comprimido.type);
       await uploadParaR2(uploadUrl, comprimido);
-      const novaFoto = await registrarFoto(osCriada.id, key, 'FOTO', undefined, 'ENTRADA');
+      const novaFoto = await registrarFoto(osCriada.id, key, 'FOTO', rotulo, 'ENTRADA');
       setFotosEntrada((prev) => ({ ...prev, [chave]: novaFoto }));
     } catch (e) {
       setErroFotoEntrada(e instanceof Error ? e.message : 'Não foi possível enviar a foto.');
@@ -229,54 +232,81 @@ export function AbrirOS() {
     }
   }
 
+  // === TELA DE FOTOS (pós-criação) ===
   if (osCriada) {
-    const totalFotosEntrada = Object.keys(fotosEntrada).length;
+    const totalFotos = Object.keys(fotosEntrada).length;
     return (
       <div className="min-h-screen bg-bg">
         <Topbar />
-
         <main className="mx-auto max-w-xl px-4 py-6 sm:px-6">
           <h1 className="mb-1 font-display text-xl font-bold text-ink">Fotos de entrada</h1>
-          <p className="mb-5 text-sm text-ink-soft">
-            Registre o estado do veículo antes de iniciar o serviço. Pelo menos 1 foto é obrigatória.
+          <p className="mb-2 text-sm text-ink-soft">
+            Registre o estado do veículo antes de iniciar o serviço.
           </p>
+
+          <div className="mb-4 flex items-center gap-2">
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-line">
+              <div
+                className="h-full rounded-full bg-accent transition-all"
+                style={{ width: `${(totalFotos / CHECKLIST_FOTOS_ENTRADA.length) * 100}%` }}
+              />
+            </div>
+            <span className="shrink-0 text-xs font-medium text-ink-soft">
+              {totalFotos}/{CHECKLIST_FOTOS_ENTRADA.length}
+            </span>
+          </div>
 
           {erroFotoEntrada && (
             <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erroFotoEntrada}</p>
           )}
 
-          <div className="flex flex-col gap-2">
+          <div className="grid grid-cols-2 gap-3">
             {CHECKLIST_FOTOS_ENTRADA.map((item) => {
               const foto = fotosEntrada[item.chave];
-              const enviandoEssaFoto = enviandoFotoChave === item.chave;
+              const enviandoEsta = enviandoFotoChave === item.chave;
               return (
-                <div key={item.chave} className="flex items-center gap-3 rounded-lg border border-line bg-white p-3">
-                  {foto ? (
-                    <img src={foto.url} alt={item.rotulo} className="h-14 w-14 shrink-0 rounded-md object-cover" />
-                  ) : (
-                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-bg text-ink-soft">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M4 7h3l2-2h6l2 2h3v12H4z" />
-                        <circle cx="12" cy="13" r="3" />
-                      </svg>
-                    </div>
-                  )}
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-ink">{item.rotulo}</p>
-                    <p className="text-xs text-ink-soft">{foto ? 'Foto adicionada' : 'Sem foto ainda'}</p>
+                <label key={item.chave} className="cursor-pointer">
+                  <div
+                    className={`relative aspect-square w-full overflow-hidden rounded-xl border-2 transition-colors ${
+                      foto
+                        ? 'border-green-500 bg-black'
+                        : 'border-dashed border-line bg-bg hover:border-ink/30'
+                    }`}
+                  >
+                    {foto ? (
+                      <>
+                        <img src={foto.url} alt={item.rotulo} className="h-full w-full object-cover opacity-90" />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500 text-white">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          </span>
+                        </div>
+                      </>
+                    ) : enviandoEsta ? (
+                      <div className="flex h-full items-center justify-center">
+                        <p className="text-xs text-ink-soft">Enviando...</p>
+                      </div>
+                    ) : (
+                      <div className="flex h-full flex-col items-center justify-center gap-2 text-ink-soft">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M4 7h3l2-2h6l2 2h3v12H4z" />
+                          <circle cx="12" cy="13" r="3" />
+                        </svg>
+                      </div>
+                    )}
                   </div>
-                  <label className="shrink-0 cursor-pointer text-xs font-medium text-accent-ink underline">
-                    {enviandoEssaFoto ? 'Enviando...' : foto ? 'Trocar' : 'Adicionar'}
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,image/heic"
-                      capture="environment"
-                      className="hidden"
-                      onChange={(e) => aoAdicionarFotoEntrada(item.chave, e)}
-                      disabled={enviandoEssaFoto}
-                    />
-                  </label>
-                </div>
+                  <p className="mt-1.5 text-center text-xs font-medium text-ink">{item.rotulo}</p>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/heic"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => aoAdicionarFotoEntrada(item.chave, item.rotulo, e)}
+                    disabled={enviandoEsta}
+                  />
+                </label>
               );
             })}
           </div>
@@ -284,179 +314,206 @@ export function AbrirOS() {
           <Botao
             type="button"
             onClick={() => navegar(`/os/${osCriada.id}`)}
-            disabled={totalFotosEntrada === 0}
-            className="mt-5 w-full"
+            disabled={totalFotos === 0}
+            className="mt-6 w-full"
           >
-            {totalFotosEntrada === 0 ? 'Adicione ao menos 1 foto para concluir' : 'Concluir'}
+            {totalFotos === 0 ? 'Adicione ao menos 1 foto para concluir' : 'Concluir e ir para a OS'}
           </Botao>
         </main>
       </div>
     );
   }
 
+  // === FORMULÁRIO PRINCIPAL ===
   return (
     <div className="min-h-screen bg-bg">
       <Topbar />
-
       <main className="mx-auto max-w-xl px-4 py-6 sm:px-6">
         <BotaoVoltar />
         <h1 className="mb-5 font-display text-xl font-bold text-ink">Abrir Ordem de Serviço</h1>
 
         <form onSubmit={aoEnviar} className="flex flex-col gap-5">
-          {/* Etapa 1: Cliente */}
+          {/* Passo 0: Placa */}
           <div className="rounded-lg border border-line bg-white p-4">
-            <h2 className="mb-3 text-sm font-semibold text-ink">Cliente</h2>
+            <h2 className="mb-3 text-sm font-semibold text-ink">Placa do veículo</h2>
 
-            {!clienteResolvido ? (
-              <>
-                <div className="flex items-end gap-2">
-                  <div className="relative flex-1">
-                    <Campo
-                      rotulo="Nome do cliente"
-                      id="nomeBusca"
-                      value={nomeBusca}
-                      onChange={(e) => setNomeBusca(e.target.value)}
-                      onKeyDown={aoApertarTecla}
-                      placeholder="Comece a digitar o nome..."
-                      autoComplete="off"
-                    />
-
-                    {sugestoesClientes.length > 0 && (
-                      <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-line bg-white shadow-md">
-                        {sugestoesClientes.map((c) => (
-                          <li key={c.id}>
-                            <button
-                              type="button"
-                              onClick={() => selecionarCliente(c)}
-                              className="block w-full px-3 py-2.5 text-left text-sm hover:bg-bg"
-                            >
-                              <span className="font-medium text-ink">{c.nome}</span>
-                              <span className="ml-2 text-xs text-ink-soft">{c.telefone}</span>
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={avancarCliente}
-                    disabled={!nomeBusca.trim()}
-                    aria-label="Continuar"
-                    className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-ink text-white transition-colors hover:bg-ink/90 disabled:opacity-40"
-                  >
+            {!veiculoBuscado ? (
+              <div className="flex items-end gap-2">
+                <div className="flex-1">
+                  <Campo
+                    rotulo="Placa"
+                    id="placa"
+                    value={placa}
+                    onChange={(e) => setPlaca(e.target.value.toUpperCase())}
+                    onKeyDown={aoApertarTeclaPlaca}
+                    className="font-mono text-lg uppercase tracking-widest"
+                    placeholder="ABC1234"
+                    autoComplete="off"
+                    maxLength={8}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={buscarPlaca}
+                  disabled={!placa.trim() || buscandoPlaca}
+                  aria-label="Buscar placa"
+                  className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-ink text-white transition-colors hover:bg-ink/90 disabled:opacity-40"
+                >
+                  {buscandoPlaca ? (
+                    <span className="text-xs">...</span>
+                  ) : (
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M9 6l6 6-6 6" />
                     </svg>
-                  </button>
-                </div>
-
-                {buscandoClientes && <p className="mt-2 text-xs text-ink-soft">Buscando...</p>}
-
-                {cadastrandoCliente && (
-                  <div className="mt-4 flex flex-col gap-3 border-t border-line pt-4">
-                    <p className="text-xs text-ink-soft">
-                      Cadastrando <span className="font-medium text-ink">{nomeBusca.trim() || '(informe o nome acima)'}</span> como cliente novo:
-                    </p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <label className="flex flex-col gap-1.5">
-                        <span className="text-xs font-medium text-ink-soft">Tipo de pessoa</span>
-                        <select
-                          value={tipoPessoaCliente}
-                          onChange={(e) => setTipoPessoaCliente(e.target.value as TipoPessoa)}
-                          className="rounded-md border border-line bg-white px-3 py-2.5 text-sm text-ink focus:border-accent"
-                        >
-                          <option value="FISICA">Física</option>
-                          <option value="JURIDICA">Jurídica</option>
-                        </select>
-                      </label>
-                      <Campo rotulo="CPF ou CNPJ" id="cpfCnpjCliente" value={cpfCnpjCliente} onChange={(e) => setCpfCnpjCliente(e.target.value)} required />
-                    </div>
-                    <Campo rotulo="Telefone" id="telefoneCliente" value={telefoneCliente} onChange={(e) => setTelefoneCliente(e.target.value)} required />
-                    <div className="grid grid-cols-3 gap-3">
-                      <Campo rotulo="Rua" id="enderecoRuaCliente" className="col-span-2" value={enderecoRuaCliente} onChange={(e) => setEnderecoRuaCliente(e.target.value)} />
-                      <Campo rotulo="Número" id="enderecoNumeroCliente" value={enderecoNumeroCliente} onChange={(e) => setEnderecoNumeroCliente(e.target.value)} />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                      <Campo rotulo="Bairro" id="enderecoBairroCliente" value={enderecoBairroCliente} onChange={(e) => setEnderecoBairroCliente(e.target.value)} />
-                      <Campo rotulo="Cidade" id="enderecoCidadeCliente" value={enderecoCidadeCliente} onChange={(e) => setEnderecoCidadeCliente(e.target.value)} />
-                    </div>
-                    <Campo rotulo="Estado (UF)" id="enderecoEstadoCliente" maxLength={2} value={enderecoEstadoCliente} onChange={(e) => setEnderecoEstadoCliente(e.target.value.toUpperCase())} />
-                    <Botao
-                      type="button"
-                      onClick={confirmarClienteNovo}
-                      disabled={!nomeBusca.trim() || !cpfCnpjCliente.trim() || !telefoneCliente.trim()}
-                      className="self-start"
-                    >
-                      Confirmar cliente novo
-                    </Botao>
-                  </div>
-                )}
-              </>
+                  )}
+                </button>
+              </div>
             ) : (
               <div className="flex items-center justify-between rounded-md bg-accent-soft px-3 py-2.5 text-sm">
-                <div>
-                  <p className="font-medium text-ink">{clienteSelecionado ? clienteSelecionado.nome : nomeBusca.trim()}</p>
-                  <p className="text-ink-soft">{clienteSelecionado ? 'Cliente já cadastrado' : 'Cliente novo'}</p>
-                </div>
-                <button type="button" onClick={trocarCliente} className="text-xs font-medium text-accent-ink underline">
+                <p className="font-mono font-bold tracking-widest text-ink">{placa.toUpperCase()}</p>
+                <button type="button" onClick={voltarParaPlaca} className="text-xs font-medium text-accent-ink underline">
                   Trocar
                 </button>
               </div>
             )}
           </div>
 
-          {/* Etapa 2: Carro - só aparece depois do cliente resolvido */}
-          {clienteResolvido && (
-            <div className="rounded-lg border border-line bg-white p-4">
-              <h2 className="mb-3 text-sm font-semibold text-ink">Veículo</h2>
+          {/* Confirmação de carro encontrado */}
+          {veiculoBuscado && veiculoEncontrado && !veiculoConfirmado && (
+            <div className="rounded-lg border border-accent bg-accent-soft p-4">
+              <p className="mb-1 text-xs font-medium text-ink-soft">Carro encontrado — é esse?</p>
+              <p className="font-mono text-base font-bold text-ink">{veiculoEncontrado.placa}</p>
+              <p className="text-sm text-ink">
+                {veiculoEncontrado.modelo}
+                {veiculoEncontrado.marca ? ` · ${veiculoEncontrado.marca}` : ''}
+                {veiculoEncontrado.ano ? ` · ${veiculoEncontrado.ano}` : ''}
+              </p>
+              <p className="mt-1 text-xs text-ink-soft">Cliente: {veiculoEncontrado.cliente.nome}</p>
+              <div className="mt-3 flex gap-2">
+                <Botao type="button" onClick={() => setVeiculoConfirmado(true)}>
+                  Sim, é esse
+                </Botao>
+                <Botao type="button" variante="secundario" onClick={voltarParaPlaca}>
+                  Não é esse
+                </Botao>
+              </div>
+            </div>
+          )}
 
-              {carregandoVeiculos && <p className="text-sm text-ink-soft">Carregando carros do cliente...</p>}
+          {/* Placa não encontrada — fluxo de cliente novo */}
+          {veiculoBuscado && veiculoEncontrado === null && (
+            <>
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                Placa não encontrada. Preencha os dados do cliente e do carro para cadastrar.
+              </div>
 
-              {!carregandoVeiculos && !veiculoResolvido && (
-                <div className="flex flex-col gap-2">
-                  {veiculosDoCliente && veiculosDoCliente.length > 0 && (
-                    <ul className="flex flex-col gap-2">
-                      {veiculosDoCliente.map((v) => (
-                        <li key={v.id}>
-                          <button
-                            type="button"
-                            onClick={() => setVeiculoSelecionado(v)}
-                            className="flex w-full items-center justify-between rounded-md border border-line px-3 py-2.5 text-left text-sm hover:border-ink/40"
-                          >
-                            <span>
-                              <span className="font-mono font-medium text-ink">{v.placa}</span>
-                              <span className="ml-2 text-ink-soft">
-                                {v.modelo} {v.marca ? `· ${v.marca}` : ''} {v.ano ? `· ${v.ano}` : ''}
-                              </span>
-                            </span>
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
+              {/* Cliente */}
+              <div className="rounded-lg border border-line bg-white p-4">
+                <h2 className="mb-3 text-sm font-semibold text-ink">Cliente</h2>
 
-                  {!mostrarNovoVeiculo && (
-                    <button
-                      type="button"
-                      onClick={() => setMostrarNovoVeiculo(true)}
-                      className="self-start text-xs font-medium text-accent-ink underline"
-                    >
-                      + Novo carro
-                    </button>
-                  )}
+                {!clienteResolvido ? (
+                  <>
+                    <div className="flex items-end gap-2">
+                      <div className="relative flex-1">
+                        <Campo
+                          rotulo="Nome do cliente"
+                          id="nomeBusca"
+                          value={nomeBusca}
+                          onChange={(e) => setNomeBusca(e.target.value)}
+                          onKeyDown={aoApertarTeclaCliente}
+                          placeholder="Comece a digitar o nome..."
+                          autoComplete="off"
+                        />
+                        {sugestoesClientes.length > 0 && (
+                          <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-line bg-white shadow-md">
+                            {sugestoesClientes.map((c) => (
+                              <li key={c.id}>
+                                <button type="button" onClick={() => selecionarCliente(c)} className="block w-full px-3 py-2.5 text-left text-sm hover:bg-bg">
+                                  <span className="font-medium text-ink">{c.nome}</span>
+                                  <span className="ml-2 text-xs text-ink-soft">{c.telefone}</span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={avancarCliente}
+                        disabled={!nomeBusca.trim()}
+                        aria-label="Continuar"
+                        className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-ink text-white transition-colors hover:bg-ink/90 disabled:opacity-40"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M9 6l6 6-6 6" />
+                        </svg>
+                      </button>
+                    </div>
 
-                  {mostrarNovoVeiculo && (
-                    <div className="mt-2 flex flex-col gap-3 border-t border-line pt-3">
-                      <Campo
-                        rotulo="Placa"
-                        id="placaNova"
-                        value={placaNova}
-                        onChange={(e) => setPlacaNova(e.target.value.toUpperCase())}
-                        className="font-mono uppercase"
-                        required
-                      />
+                    {buscandoClientes && <p className="mt-2 text-xs text-ink-soft">Buscando...</p>}
+
+                    {cadastrandoCliente && (
+                      <div className="mt-4 flex flex-col gap-3 border-t border-line pt-4">
+                        <p className="text-xs text-ink-soft">
+                          Cadastrando <span className="font-medium text-ink">{nomeBusca.trim()}</span> como cliente novo:
+                        </p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <label className="flex flex-col gap-1.5">
+                            <span className="text-xs font-medium text-ink-soft">Tipo de pessoa</span>
+                            <select
+                              value={tipoPessoaCliente}
+                              onChange={(e) => setTipoPessoaCliente(e.target.value as TipoPessoa)}
+                              className="rounded-md border border-line bg-white px-3 py-2.5 text-sm text-ink focus:border-accent"
+                            >
+                              <option value="FISICA">Física</option>
+                              <option value="JURIDICA">Jurídica</option>
+                            </select>
+                          </label>
+                          <Campo rotulo="CPF ou CNPJ" id="cpfCnpjCliente" value={cpfCnpjCliente} onChange={(e) => setCpfCnpjCliente(e.target.value)} required />
+                        </div>
+                        <Campo rotulo="Telefone" id="telefoneCliente" value={telefoneCliente} onChange={(e) => setTelefoneCliente(e.target.value)} required />
+                        <div className="grid grid-cols-3 gap-3">
+                          <Campo rotulo="Rua" id="enderecoRua" className="col-span-2" value={enderecoRuaCliente} onChange={(e) => setEnderecoRuaCliente(e.target.value)} />
+                          <Campo rotulo="Número" id="enderecoNumero" value={enderecoNumeroCliente} onChange={(e) => setEnderecoNumeroCliente(e.target.value)} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <Campo rotulo="Bairro" id="enderecoBairro" value={enderecoBairroCliente} onChange={(e) => setEnderecoBairroCliente(e.target.value)} />
+                          <Campo rotulo="Cidade" id="enderecoCidade" value={enderecoCidadeCliente} onChange={(e) => setEnderecoCidadeCliente(e.target.value)} />
+                        </div>
+                        <Campo rotulo="Estado (UF)" id="enderecoEstado" maxLength={2} value={enderecoEstadoCliente} onChange={(e) => setEnderecoEstadoCliente(e.target.value.toUpperCase())} />
+                        <Botao
+                          type="button"
+                          onClick={confirmarClienteNovo}
+                          disabled={!nomeBusca.trim() || !cpfCnpjCliente.trim() || !telefoneCliente.trim()}
+                          className="self-start"
+                        >
+                          Confirmar cliente novo
+                        </Botao>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="flex items-center justify-between rounded-md bg-accent-soft px-3 py-2.5 text-sm">
+                    <div>
+                      <p className="font-medium text-ink">{clienteSelecionado ? clienteSelecionado.nome : nomeBusca.trim()}</p>
+                      <p className="text-ink-soft">{clienteSelecionado ? 'Cliente já cadastrado' : 'Cliente novo'}</p>
+                    </div>
+                    <button type="button" onClick={trocarCliente} className="text-xs font-medium text-accent-ink underline">Trocar</button>
+                  </div>
+                )}
+              </div>
+
+              {/* Carro novo */}
+              {clienteResolvido && (
+                <div className="rounded-lg border border-line bg-white p-4">
+                  <h2 className="mb-3 text-sm font-semibold text-ink">Dados do veículo</h2>
+
+                  {!veiculoNovoResolvido ? (
+                    <div className="flex flex-col gap-3">
+                      <div className="rounded-md bg-bg px-3 py-2 text-sm">
+                        <span className="text-xs text-ink-soft">Placa: </span>
+                        <span className="font-mono font-bold tracking-widest">{placa.toUpperCase()}</span>
+                      </div>
                       <div className="grid grid-cols-3 gap-3">
                         <Campo rotulo="Modelo" id="modeloNovo" className="col-span-2" value={modeloNovo} onChange={(e) => setModeloNovo(e.target.value)} required />
                         <Campo rotulo="Ano" id="anoNovo" type="number" inputMode="numeric" value={anoNovo} onChange={(e) => setAnoNovo(e.target.value)} />
@@ -465,41 +522,28 @@ export function AbrirOS() {
                       <Botao
                         type="button"
                         onClick={() => setVeiculoNovoConfirmado(true)}
-                        disabled={!placaNova.trim() || !modeloNovo.trim()}
+                        disabled={!modeloNovo.trim()}
                         className="self-start"
                       >
                         Confirmar carro
                       </Botao>
                     </div>
+                  ) : (
+                    <div className="flex items-center justify-between rounded-md bg-accent-soft px-3 py-2.5 text-sm">
+                      <div>
+                        <p className="font-mono font-bold tracking-widest text-ink">{placa.toUpperCase()}</p>
+                        <p className="text-ink-soft">{modeloNovo}</p>
+                      </div>
+                      <button type="button" onClick={() => setVeiculoNovoConfirmado(false)} className="text-xs font-medium text-accent-ink underline">Editar</button>
+                    </div>
                   )}
                 </div>
               )}
-
-              {!carregandoVeiculos && veiculoResolvido && (
-                <div className="flex items-center justify-between rounded-md bg-accent-soft px-3 py-2.5 text-sm">
-                  <div>
-                    {veiculoSelecionado ? (
-                      <>
-                        <p className="font-mono font-medium text-ink">{veiculoSelecionado.placa}</p>
-                        <p className="text-ink-soft">{veiculoSelecionado.modelo}</p>
-                      </>
-                    ) : (
-                      <>
-                        <p className="font-mono font-medium text-ink">{placaNova}</p>
-                        <p className="text-ink-soft">Carro novo · {modeloNovo}</p>
-                      </>
-                    )}
-                  </div>
-                  <button type="button" onClick={trocarVeiculo} className="text-xs font-medium text-accent-ink underline">
-                    Trocar
-                  </button>
-                </div>
-              )}
-            </div>
+            </>
           )}
 
-          {/* Etapa 3: Serviço - só aparece depois do carro resolvido */}
-          {clienteResolvido && veiculoResolvido && (
+          {/* Passo 2: Serviço */}
+          {mostraServico && (
             <div className="rounded-lg border border-line bg-white p-4">
               <h2 className="mb-3 text-sm font-semibold text-ink">Serviço</h2>
               <div className="flex flex-col gap-3">
@@ -527,7 +571,7 @@ export function AbrirOS() {
 
           {erro && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
 
-          {clienteResolvido && veiculoResolvido && (
+          {mostraServico && (
             <Botao type="submit" disabled={enviando}>
               {enviando ? 'Abrindo...' : 'Abrir Ordem de Serviço'}
             </Botao>

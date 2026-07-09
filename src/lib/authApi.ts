@@ -12,3 +12,14 @@ export function login(login: string, senha: string) {
     body: { login, senha },
   });
 }
+
+export function me() {
+  return api<Usuario>('/auth/me');
+}
+
+export function trocarSenha(senhaAtual: string, novaSenha: string) {
+  return api<void>('/auth/trocar-senha', {
+    method: 'PATCH',
+    body: { senhaAtual, novaSenha },
+  });
+}

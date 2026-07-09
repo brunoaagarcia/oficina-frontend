@@ -6,7 +6,7 @@ import { Botao } from '../components/Botao';
 import { StatusTag } from '../components/StatusTag';
 import { useAuth } from '../lib/AuthContext';
 import { ApiError } from '../lib/api';
-import { criarUsuario, desativarUsuario, listarUsuarios } from '../lib/usuariosApi';
+import { criarUsuario, desativarUsuario, listarUsuarios, resetarSenhaUsuario } from '../lib/usuariosApi';
 import { listarOrdensServico } from '../lib/ordensServicoApi';
 import type { OrdemServico, PapelUsuario, Usuario } from '../lib/types';
 
@@ -23,12 +23,16 @@ export function Usuarios() {
   const [papel, setPapel] = useState<PapelUsuario>('MECANICO');
   const [salvando, setSalvando] = useState(false);
 
-  // Usuário selecionado pra ver as OS que ele abriu
   const [selecionado, setSelecionado] = useState<Usuario | null>(null);
   const [ordensDoUsuario, setOrdensDoUsuario] = useState<OrdemServico[]>([]);
   const [carregandoOrdens, setCarregandoOrdens] = useState(false);
 
   const [removendoId, setRemovendoId] = useState<string | null>(null);
+
+  const [resetandoSenhaId, setResetandoSenhaId] = useState<string | null>(null);
+  const [novaSenhaReset, setNovaSenhaReset] = useState('');
+  const [salvandoReset, setSalvandoReset] = useState(false);
+  const [senhaResetadaSucesso, setSenhaResetadaSucesso] = useState<{ id: string; senha: string } | null>(null);
 
   function carregar() {
     setCarregando(true);
@@ -41,7 +45,6 @@ export function Usuarios() {
 
   useEffect(carregar, []);
 
-  // Só a moderadora acessa essa tela - mesma regra do backend, refletida aqui
   if (usuarioLogado && usuarioLogado.papel !== 'MODERADOR') {
     return <Navigate to="/" replace />;
   }
@@ -89,6 +92,25 @@ export function Usuarios() {
       setErro(e instanceof ApiError ? e.message : 'Não foi possível remover esse usuário.');
     } finally {
       setRemovendoId(null);
+    }
+  }
+
+  async function aoResetarSenha(u: Usuario) {
+    if (!novaSenhaReset.trim() || novaSenhaReset.length < 6) {
+      setErro('A senha precisa ter no mínimo 6 caracteres.');
+      return;
+    }
+    setSalvandoReset(true);
+    setErro(null);
+    try {
+      await resetarSenhaUsuario(u.id, novaSenhaReset.trim());
+      setSenhaResetadaSucesso({ id: u.id, senha: novaSenhaReset.trim() });
+      setResetandoSenhaId(null);
+      setNovaSenhaReset('');
+    } catch (e) {
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível resetar a senha.');
+    } finally {
+      setSalvandoReset(false);
     }
   }
 
@@ -144,32 +166,78 @@ export function Usuarios() {
           {usuarios.map((u) => (
             <li key={u.id}>
               <div
-                className={`flex items-center justify-between gap-2 rounded-lg border bg-white px-4 py-3 transition-colors ${
+                className={`rounded-lg border bg-white transition-colors ${
                   selecionado?.id === u.id ? 'border-accent' : 'border-line'
                 } ${u.ativo === false ? 'opacity-60' : ''}`}
               >
-                <button onClick={() => verOrdens(u)} className="min-w-0 flex-1 text-left">
-                  <p className="text-sm font-medium text-ink">{u.nome}</p>
-                  <p className="text-xs text-ink-soft">@{u.login}</p>
-                </button>
-
-                <span className="rounded-full bg-bg px-2.5 py-1 text-[11px] font-medium text-ink-soft">
-                  {u.papel === 'MODERADOR' ? 'Moderador' : 'Mecânico'}
-                </span>
-
-                {u.ativo === false ? (
-                  <span className="rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-medium text-red-700">
-                    Removido
-                  </span>
-                ) : u.id !== usuarioLogado?.id ? (
-                  <button
-                    onClick={() => aoRemover(u)}
-                    disabled={removendoId === u.id}
-                    className="text-xs font-medium text-ink-soft underline hover:text-red-700"
-                  >
-                    {removendoId === u.id ? 'Removendo...' : 'Remover'}
+                <div className="flex items-center justify-between gap-2 px-4 py-3">
+                  <button onClick={() => verOrdens(u)} className="min-w-0 flex-1 text-left">
+                    <p className="text-sm font-medium text-ink">{u.nome}</p>
+                    <p className="text-xs text-ink-soft">@{u.login}</p>
                   </button>
-                ) : null}
+
+                  <span className="rounded-full bg-bg px-2.5 py-1 text-[11px] font-medium text-ink-soft">
+                    {u.papel === 'MODERADOR' ? 'Moderador' : 'Mecânico'}
+                  </span>
+
+                  {u.ativo === false ? (
+                    <span className="rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-medium text-red-700">
+                      Removido
+                    </span>
+                  ) : u.id !== usuarioLogado?.id ? (
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => {
+                          setResetandoSenhaId(resetandoSenhaId === u.id ? null : u.id);
+                          setNovaSenhaReset('');
+                          setSenhaResetadaSucesso(null);
+                          setErro(null);
+                        }}
+                        className="text-xs font-medium text-accent-ink underline"
+                      >
+                        Resetar senha
+                      </button>
+                      <button
+                        onClick={() => aoRemover(u)}
+                        disabled={removendoId === u.id}
+                        className="text-xs font-medium text-ink-soft underline hover:text-red-700"
+                      >
+                        {removendoId === u.id ? 'Removendo...' : 'Remover'}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+
+                {resetandoSenhaId === u.id && (
+                  <div className="border-t border-line px-4 py-3">
+                    <p className="mb-2 text-xs text-ink-soft">Nova senha provisória para {u.nome}:</p>
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1">
+                        <Campo
+                          rotulo=""
+                          id={`reset-senha-${u.id}`}
+                          type="text"
+                          value={novaSenhaReset}
+                          onChange={(e) => setNovaSenhaReset(e.target.value)}
+                          placeholder="mín. 6 caracteres"
+                        />
+                      </div>
+                      <Botao type="button" onClick={() => aoResetarSenha(u)} disabled={salvandoReset} className="shrink-0">
+                        {salvandoReset ? '...' : 'Confirmar'}
+                      </Botao>
+                      <Botao type="button" variante="secundario" onClick={() => { setResetandoSenhaId(null); setNovaSenhaReset(''); }} className="shrink-0">
+                        Cancelar
+                      </Botao>
+                    </div>
+                  </div>
+                )}
+
+                {senhaResetadaSucesso?.id === u.id && (
+                  <div className="border-t border-line bg-green-50 px-4 py-3 text-sm text-green-800">
+                    Senha resetada. Passe para {u.nome}: <span className="font-mono font-bold">{senhaResetadaSucesso.senha}</span>
+                    <button onClick={() => setSenhaResetadaSucesso(null)} className="ml-3 text-xs text-green-600 underline">fechar</button>
+                  </div>
+                )}
               </div>
             </li>
           ))}

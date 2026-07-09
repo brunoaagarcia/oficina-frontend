@@ -6,7 +6,10 @@ import type { OrdemServico, StatusOrdemServico } from '../lib/types';
 import { StatusTag } from '../components/StatusTag';
 import { Topbar } from '../components/Topbar';
 
-const FILTROS: { rotulo: string; valor: StatusOrdemServico | undefined }[] = [
+type FiltroStatus = StatusOrdemServico | 'ATIVAS' | undefined;
+
+const FILTROS: { rotulo: string; valor: FiltroStatus }[] = [
+  { rotulo: 'Ativas', valor: 'ATIVAS' },
   { rotulo: 'Todas', valor: undefined },
   { rotulo: 'Orçamento', valor: 'ORCAMENTO' },
   { rotulo: 'Em andamento', valor: 'EM_ANDAMENTO' },
@@ -16,7 +19,7 @@ const FILTROS: { rotulo: string; valor: StatusOrdemServico | undefined }[] = [
 
 export function ListaOS() {
   const [ordens, setOrdens] = useState<OrdemServico[]>([]);
-  const [filtro, setFiltro] = useState<StatusOrdemServico | undefined>(undefined);
+  const [filtro, setFiltro] = useState<FiltroStatus>('ATIVAS');
   const [busca, setBusca] = useState('');
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -24,23 +27,35 @@ export function ListaOS() {
   useEffect(() => {
     setCarregando(true);
     setErro(null);
-    listarOrdensServico({ status: filtro })
+    const statusParaApi = filtro !== undefined && filtro !== 'ATIVAS'
+      ? (filtro as StatusOrdemServico)
+      : undefined;
+    listarOrdensServico({ status: statusParaApi })
       .then(setOrdens)
       .catch((e) => setErro(e instanceof ApiError ? e.message : 'Não foi possível carregar as ordens.'))
       .finally(() => setCarregando(false));
   }, [filtro]);
 
-  // Busca por placa ou nome do cliente, direto na lista já carregada -
-  // dá conta do recado enquanto o volume de OS for baixo/médio.
   const ordensFiltradas = useMemo(() => {
+    let lista = ordens;
+
+    if (filtro === 'ATIVAS') {
+      lista = lista.filter((os) => os.status === 'ORCAMENTO' || os.status === 'EM_ANDAMENTO');
+    }
+
     const termo = busca.trim().toLowerCase();
-    if (!termo) return ordens;
-    return ordens.filter(
+    if (!termo) return lista;
+    return lista.filter(
       (os) =>
         os.veiculo.placa.toLowerCase().includes(termo) ||
         os.veiculo.cliente.nome.toLowerCase().includes(termo),
     );
-  }, [ordens, busca]);
+  }, [ordens, busca, filtro]);
+
+  const semFotosEntrada = (os: OrdemServico) =>
+    (os.totalFotosEntrada === 0) &&
+    os.status !== 'FINALIZADO' &&
+    os.status !== 'REJEITADO';
 
   return (
     <div className="min-h-screen bg-bg">
@@ -95,7 +110,7 @@ export function ListaOS() {
 
         {!carregando && !erro && ordens.length > 0 && ordensFiltradas.length === 0 && (
           <p className="py-8 text-center text-sm text-ink-soft">
-            Nenhum resultado pra "{busca}".
+            Nenhum resultado{busca ? ` pra "${busca}"` : ''}.
           </p>
         )}
 
@@ -113,6 +128,15 @@ export function ListaOS() {
                       {os.veiculo.placa}
                     </span>
                     <span className="truncate text-xs text-ink-soft">{os.veiculo.modelo}</span>
+                    {semFotosEntrada(os) && (
+                      <span className="flex items-center gap-0.5 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M4 7h3l2-2h6l2 2h3v12H4z" />
+                          <line x1="1" y1="1" x2="23" y2="23" />
+                        </svg>
+                        sem fotos
+                      </span>
+                    )}
                   </div>
                 </div>
                 <StatusTag status={os.status} />

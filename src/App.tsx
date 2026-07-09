@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './lib/AuthContext';
 import { RotaProtegida } from './components/RotaProtegida';
 import { Login } from './pages/Login';
+import { TrocarSenha } from './pages/TrocarSenha';
 import { ListaOS } from './pages/ListaOS';
 import { AbrirOS } from './pages/AbrirOS';
 import { DetalheOS } from './pages/DetalheOS';
@@ -14,6 +15,14 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route
+            path="/trocar-senha"
+            element={
+              <RotaProtegida semNav>
+                <TrocarSenha />
+              </RotaProtegida>
+            }
+          />
           <Route
             path="/"
             element={
