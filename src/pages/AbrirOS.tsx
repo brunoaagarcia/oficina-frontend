@@ -4,7 +4,7 @@ import { Topbar } from '../components/Topbar';
 import { Campo } from '../components/Campo';
 import { Botao } from '../components/Botao';
 import { BotaoVoltar } from '../components/BotaoVoltar';
-import { buscarClientes, listarVeiculosDoCliente } from '../lib/clientesApi';
+import { buscarClientes } from '../lib/clientesApi';
 import { buscarVeiculoPorPlaca } from '../lib/veiculosApi';
 import { abrirOrdemServico } from '../lib/ordensServicoApi';
 import { comprimirImagem, registrarFoto, solicitarUrlUpload, uploadParaR2 } from '../lib/fotosApi';
