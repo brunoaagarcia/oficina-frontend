@@ -76,19 +76,24 @@ export function AbrirOS() {
 
   const [sugestoesPlaca, setSugestoesPlaca] = useState<Veiculo[]>([]);
 
-  useEffect(() => {
-    if (veiculoBuscado || placa.length < 2) {
-      setSugestoesPlaca([]);
-      return;
-    }
+  function aoMudarPlaca(valor: string) {
+    setPlaca(valor);
+    if (veiculoBuscado) return;
     if (debounceRefPlaca.current) clearTimeout(debounceRefPlaca.current);
     debounceRefPlaca.current = setTimeout(() => {
-      buscarVeiculosPorTermo(placa)
+      buscarVeiculosPorTermo(valor)
         .then(({ veiculos }) => setSugestoesPlaca(veiculos))
         .catch(() => setSugestoesPlaca([]));
     }, 300);
-    return () => { if (debounceRefPlaca.current) clearTimeout(debounceRefPlaca.current); };
-  }, [placa, veiculoBuscado]);
+  }
+
+  function aoFocarCampoPlaca() {
+    if (veiculoBuscado) return;
+    if (debounceRefPlaca.current) clearTimeout(debounceRefPlaca.current);
+    buscarVeiculosPorTermo(placa)
+      .then(({ veiculos }) => setSugestoesPlaca(veiculos))
+      .catch(() => setSugestoesPlaca([]));
+  }
 
   useEffect(() => {
     if (veiculoEncontrado !== null || clienteResolvido) {
@@ -152,6 +157,7 @@ export function AbrirOS() {
     setVeiculoNovoConfirmado(false);
     setKmRegistrado('');
     setQueixaInicial('');
+    setSugestoesPlaca([]);
     setErro(null);
   }
 
@@ -367,7 +373,8 @@ export function AbrirOS() {
                     rotulo="Placa"
                     id="placa"
                     value={placa}
-                    onChange={(e) => setPlaca(e.target.value.toUpperCase())}
+                    onChange={(e) => aoMudarPlaca(e.target.value.toUpperCase())}
+                    onFocus={aoFocarCampoPlaca}
                     onKeyDown={aoApertarTeclaPlaca}
                     className="font-mono text-lg uppercase tracking-widest"
                     placeholder="ABC1234"
