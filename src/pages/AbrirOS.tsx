@@ -280,7 +280,7 @@ export function AbrirOS() {
           </div>
 
           {erroFotoEntrada && (
-            <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erroFotoEntrada}</p>
+            <p className="mb-4 rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{erroFotoEntrada}</p>
           )}
 
           <div className="grid grid-cols-2 gap-3">
@@ -357,7 +357,7 @@ export function AbrirOS() {
 
         <form onSubmit={aoEnviar} className="flex flex-col gap-5">
           {/* Passo 0: Placa */}
-          <div className="rounded-lg border border-line bg-white p-4">
+          <div className="rounded-lg border border-line bg-surface p-4">
             <h2 className="mb-3 text-sm font-semibold text-ink">Placa do veículo</h2>
 
             {!veiculoBuscado ? (
@@ -375,7 +375,7 @@ export function AbrirOS() {
                     maxLength={8}
                   />
                   {sugestoesPlaca.length > 0 && (
-                    <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-line bg-white shadow-md">
+                    <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-line bg-surface shadow-md">
                       {sugestoesPlaca.map((v) => (
                         <li key={v.id}>
                           <button
@@ -397,7 +397,7 @@ export function AbrirOS() {
                   onClick={buscarPlaca}
                   disabled={!placa.trim() || buscandoPlaca}
                   aria-label="Buscar placa"
-                  className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-ink text-white transition-colors hover:bg-ink/90 disabled:opacity-40"
+                  className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-accent text-white transition-colors hover:bg-accent/90 disabled:opacity-40"
                 >
                   {buscandoPlaca ? (
                     <span className="text-xs">...</span>
@@ -443,12 +443,12 @@ export function AbrirOS() {
           {/* Placa não encontrada — fluxo de cliente novo */}
           {veiculoBuscado && veiculoEncontrado === null && (
             <>
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <div className="rounded-lg border border-warning/30 bg-warning-bg px-4 py-3 text-sm text-warning">
                 Placa não encontrada. Preencha os dados do cliente e do carro para cadastrar.
               </div>
 
               {/* Cliente */}
-              <div className="rounded-lg border border-line bg-white p-4">
+              <div className="rounded-lg border border-line bg-surface p-4">
                 <h2 className="mb-3 text-sm font-semibold text-ink">Cliente</h2>
 
                 {!clienteResolvido ? (
@@ -465,7 +465,7 @@ export function AbrirOS() {
                           autoComplete="off"
                         />
                         {sugestoesClientes.length > 0 && (
-                          <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-line bg-white shadow-md">
+                          <ul className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-md border border-line bg-surface shadow-md">
                             {sugestoesClientes.map((c) => (
                               <li key={c.id}>
                                 <button type="button" onClick={() => selecionarCliente(c)} className="block w-full px-3 py-2.5 text-left text-sm hover:bg-bg">
@@ -482,7 +482,7 @@ export function AbrirOS() {
                         onClick={avancarCliente}
                         disabled={!nomeBusca.trim()}
                         aria-label="Continuar"
-                        className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-ink text-white transition-colors hover:bg-ink/90 disabled:opacity-40"
+                        className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-accent text-white transition-colors hover:bg-accent/90 disabled:opacity-40"
                       >
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M9 6l6 6-6 6" />
@@ -503,7 +503,7 @@ export function AbrirOS() {
                             <select
                               value={tipoPessoaCliente}
                               onChange={(e) => setTipoPessoaCliente(e.target.value as TipoPessoa)}
-                              className="rounded-md border border-line bg-white px-3 py-2.5 text-sm text-ink focus:border-accent"
+                              className="rounded-md border border-line bg-surface px-3 py-2.5 text-sm text-ink focus:border-accent"
                             >
                               <option value="FISICA">Física</option>
                               <option value="JURIDICA">Jurídica</option>
@@ -545,7 +545,7 @@ export function AbrirOS() {
 
               {/* Carro novo */}
               {clienteResolvido && (
-                <div className="rounded-lg border border-line bg-white p-4">
+                <div className="rounded-lg border border-line bg-surface p-4">
                   <h2 className="mb-3 text-sm font-semibold text-ink">Dados do veículo</h2>
 
                   {!veiculoNovoResolvido ? (
@@ -584,7 +584,7 @@ export function AbrirOS() {
 
           {/* Passo 2: Serviço */}
           {mostraServico && (
-            <div className="rounded-lg border border-line bg-white p-4">
+            <div className="rounded-lg border border-line bg-surface p-4">
               <h2 className="mb-3 text-sm font-semibold text-ink">Serviço</h2>
               <div className="flex flex-col gap-3">
                 <Campo
@@ -601,7 +601,7 @@ export function AbrirOS() {
                     value={queixaInicial}
                     onChange={(e) => setQueixaInicial(e.target.value)}
                     rows={3}
-                    className="rounded-md border border-line bg-white px-3 py-2.5 text-sm text-ink focus:border-accent"
+                    className="rounded-md border border-line bg-surface px-3 py-2.5 text-sm text-ink focus:border-accent"
                     placeholder='Ex: "Carro dando tranco na troca de marcha"'
                   />
                 </label>
@@ -609,7 +609,7 @@ export function AbrirOS() {
             </div>
           )}
 
-          {erro && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
+          {erro && <p className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{erro}</p>}
 
           {mostraServico && (
             <Botao type="submit" disabled={enviando}>

@@ -76,7 +76,7 @@ export function ListaOS() {
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
           placeholder="Buscar por placa ou nome do cliente"
-          className="mb-4 w-full rounded-md border border-line bg-white px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft/60 focus:border-accent"
+          className="mb-4 w-full rounded-md border border-line bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft/60 focus:border-accent"
         />
 
         <div className="mb-5 flex gap-2 overflow-x-auto pb-1">
@@ -86,8 +86,8 @@ export function ListaOS() {
               onClick={() => setFiltro(f.valor)}
               className={`shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium transition-colors ${
                 filtro === f.valor
-                  ? 'border-ink bg-ink text-white'
-                  : 'border-line bg-white text-ink-soft hover:border-ink/40'
+                  ? 'border-accent bg-accent text-white'
+                  : 'border-line bg-surface text-ink-soft hover:border-ink/40'
               }`}
             >
               {f.rotulo}
@@ -97,10 +97,10 @@ export function ListaOS() {
 
         {carregando && <p className="py-10 text-center text-sm text-ink-soft">Carregando...</p>}
 
-        {erro && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
+        {erro && <p className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{erro}</p>}
 
         {!carregando && !erro && ordens.length === 0 && (
-          <div className="rounded-lg border border-dashed border-line bg-white px-6 py-12 text-center">
+          <div className="rounded-lg border border-dashed border-line bg-surface px-6 py-12 text-center">
             <p className="text-sm text-ink-soft">Nenhuma ordem de serviço por aqui ainda.</p>
             <Link to="/abrir" className="mt-2 inline-block text-sm font-medium text-accent-ink underline">
               Abrir a primeira
@@ -119,7 +119,7 @@ export function ListaOS() {
             <li key={os.id}>
               <Link
                 to={`/os/${os.id}`}
-                className="flex items-center justify-between gap-3 rounded-lg border border-line bg-white px-4 py-3.5 shadow-sm transition-shadow hover:shadow-md"
+                className="flex items-center justify-between gap-3 rounded-lg border border-line bg-surface px-4 py-3.5 shadow-sm transition-shadow hover:shadow-md"
               >
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-ink">{os.veiculo.cliente.nome}</p>
@@ -129,7 +129,7 @@ export function ListaOS() {
                     </span>
                     <span className="truncate text-xs text-ink-soft">{os.veiculo.modelo}</span>
                     {semFotosEntrada(os) && (
-                      <span className="flex items-center gap-0.5 rounded-full bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
+                      <span className="flex items-center gap-0.5 rounded-full bg-warning-bg px-1.5 py-0.5 text-[10px] font-medium text-warning">
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M4 7h3l2-2h6l2 2h3v12H4z" />
                           <line x1="1" y1="1" x2="23" y2="23" />

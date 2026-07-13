@@ -52,7 +52,7 @@ export function TrocarSenha() {
 
       <main className="mx-auto max-w-sm px-4 py-8 sm:px-6">
         {ehProvisoria && (
-          <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <div className="mb-6 rounded-lg border border-warning/30 bg-warning-bg px-4 py-3 text-sm text-warning">
             Você está usando uma senha provisória. Crie uma senha pessoal para continuar.
           </div>
         )}
@@ -135,7 +135,7 @@ export function TrocarSenha() {
           />
 
           {erro && (
-            <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>
+            <p className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{erro}</p>
           )}
 
           <Botao type="submit" disabled={enviando} className="mt-1">

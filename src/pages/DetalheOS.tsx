@@ -341,7 +341,7 @@ export function DetalheOS() {
       <div className="min-h-screen bg-bg">
         <Topbar />
         <main className="mx-auto max-w-xl px-4 py-6 sm:px-6">
-          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>
+          <p className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{erro}</p>
         </main>
       </div>
     );
@@ -360,7 +360,7 @@ export function DetalheOS() {
         <BotaoVoltar />
 
         {/* 1. Cabeçalho */}
-        <div className="mb-5 rounded-lg border border-line bg-white p-4">
+        <div className="mb-5 rounded-lg border border-line bg-surface p-4">
           <div className="mb-2 flex items-start justify-between gap-3">
             <div>
               <p className="font-mono text-lg font-bold tracking-wide text-ink">{os.veiculo.placa}</p>
@@ -379,10 +379,10 @@ export function DetalheOS() {
           </div>
         </div>
 
-        {erro && <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
+        {erro && <p className="mb-4 rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{erro}</p>}
 
         {/* 2. Card de entrada: queixa + km + fotos de entrada */}
-        <div className="mb-5 rounded-lg border border-line bg-white p-4">
+        <div className="mb-5 rounded-lg border border-line bg-surface p-4">
           <h2 className="mb-3 text-sm font-semibold text-ink">Entrada</h2>
 
           {os.queixaInicial && (
@@ -452,7 +452,7 @@ export function DetalheOS() {
                           if (e.key === 'Escape') { e.preventDefault(); setEditandoLegendaId(null); }
                         }}
                         onBlur={() => salvarLegenda(foto.id)}
-                        className="mt-1 w-full rounded border border-line bg-white px-1.5 py-0.5 text-center text-[11px] text-ink focus:border-accent focus:outline-none"
+                        className="mt-1 w-full rounded border border-line bg-surface px-1.5 py-0.5 text-center text-[11px] text-ink focus:border-accent focus:outline-none"
                       />
                     ) : foto.descricao ? (
                       <button
@@ -480,7 +480,7 @@ export function DetalheOS() {
         </div>
 
         {/* 3. Observações */}
-        <div className="mb-5 rounded-lg border border-line bg-white p-4">
+        <div className="mb-5 rounded-lg border border-line bg-surface p-4">
           <h2 className="mb-3 text-sm font-semibold text-ink">Observações</h2>
 
           {os.observacoes.length === 0 ? (
@@ -505,7 +505,7 @@ export function DetalheOS() {
                 onChange={(e) => setNovaObservacao(e.target.value)}
                 rows={2}
                 placeholder="Ex: Peça X precisa ser trocada, aguardando fornecedor"
-                className="rounded-md border border-line bg-white px-3 py-2.5 text-sm text-ink focus:border-accent"
+                className="rounded-md border border-line bg-surface px-3 py-2.5 text-sm text-ink focus:border-accent"
               />
               <Botao type="submit" disabled={enviandoObservacao || !novaObservacao.trim()} className="self-start">
                 {enviandoObservacao ? 'Adicionando...' : 'Adicionar observação'}
@@ -519,7 +519,7 @@ export function DetalheOS() {
         </div>
 
         {/* 4. Fotos do serviço */}
-        <div className="mb-5 rounded-lg border border-line bg-white p-4">
+        <div className="mb-5 rounded-lg border border-line bg-surface p-4">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-ink">Fotos do serviço</h2>
             {podeEditar && (
@@ -537,9 +537,9 @@ export function DetalheOS() {
           </div>
 
           {erroFoto && (
-            <div className="mb-3 flex items-start justify-between gap-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div className="mb-3 flex items-start justify-between gap-2 rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">
               <span>{erroFoto}</span>
-              <button onClick={() => setErroFoto(null)} className="shrink-0 text-red-400 hover:text-red-700">✕</button>
+              <button onClick={() => setErroFoto(null)} className="shrink-0 text-danger/70 hover:text-danger">✕</button>
             </div>
           )}
 
@@ -579,7 +579,7 @@ export function DetalheOS() {
                         if (e.key === 'Escape') { e.preventDefault(); setEditandoLegendaId(null); }
                       }}
                       onBlur={() => salvarLegenda(foto.id)}
-                      className="mt-1 w-full rounded border border-line bg-white px-1.5 py-0.5 text-center text-[11px] text-ink focus:border-accent focus:outline-none"
+                      className="mt-1 w-full rounded border border-line bg-surface px-1.5 py-0.5 text-center text-[11px] text-ink focus:border-accent focus:outline-none"
                     />
                   ) : foto.descricao ? (
                     <button
@@ -607,7 +607,7 @@ export function DetalheOS() {
 
         {/* 5. Mão de obra — só moderador */}
         {ehModerador && (
-          <div className="mb-5 rounded-lg border border-line bg-white p-4">
+          <div className="mb-5 rounded-lg border border-line bg-surface p-4">
             <div className="mb-3 flex items-center justify-between">
               <h2 className="text-sm font-semibold text-ink">Mão de obra</h2>
               {podeEditar && !mostrarFormItem && (
@@ -632,7 +632,7 @@ export function DetalheOS() {
                         <span className="font-mono text-sm font-semibold text-ink">{formatarCentavos(item.valorTotalCentavos)}</span>
                       )}
                       {podeEditar && (
-                        <button onClick={() => aoRemoverItem(item.id)} disabled={removendoItemId === item.id} className="text-xs text-ink-soft underline hover:text-red-700">
+                        <button onClick={() => aoRemoverItem(item.id)} disabled={removendoItemId === item.id} className="text-xs text-ink-soft underline hover:text-danger">
                           {removendoItemId === item.id ? '...' : 'Remover'}
                         </button>
                       )}
@@ -656,7 +656,7 @@ export function DetalheOS() {
                 <div className="relative">
                   <Campo rotulo="Descrição do serviço" id="descricaoItemNovo" value={descricaoItemNovo} onChange={(e) => aoDigitarDescricaoItem(e.target.value)} placeholder="Ex: Troca de embreagem" autoComplete="off" required />
                   {sugestoesItem.length > 0 && (
-                    <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-md border border-line bg-white shadow-md">
+                    <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-md border border-line bg-surface shadow-md">
                       {sugestoesItem.map((s) => (
                         <li key={s.descricao}>
                           <button type="button" onClick={() => aplicarSugestao(s)} className="flex w-full items-center justify-between px-3 py-2.5 text-left text-sm hover:bg-bg">
@@ -670,8 +670,8 @@ export function DetalheOS() {
                 </div>
 
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => setTipoValorNovo('HORAS')} className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium ${tipoValorNovo === 'HORAS' ? 'border-ink bg-ink text-white' : 'border-line text-ink-soft'}`}>Por hora</button>
-                  <button type="button" onClick={() => setTipoValorNovo('FECHADO')} className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium ${tipoValorNovo === 'FECHADO' ? 'border-ink bg-ink text-white' : 'border-line text-ink-soft'}`}>Valor fechado</button>
+                  <button type="button" onClick={() => setTipoValorNovo('HORAS')} className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium ${tipoValorNovo === 'HORAS' ? 'border-accent bg-accent text-white' : 'border-line text-ink-soft'}`}>Por hora</button>
+                  <button type="button" onClick={() => setTipoValorNovo('FECHADO')} className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium ${tipoValorNovo === 'FECHADO' ? 'border-accent bg-accent text-white' : 'border-line text-ink-soft'}`}>Valor fechado</button>
                 </div>
 
                 {tipoValorNovo === 'HORAS' ? (
@@ -694,7 +694,7 @@ export function DetalheOS() {
 
         {/* 6. Histórico do veículo */}
         {historico.length > 0 && (
-          <div className="rounded-lg border border-line bg-white p-4">
+          <div className="rounded-lg border border-line bg-surface p-4">
             <h2 className="mb-3 text-sm font-semibold text-ink">Serviços anteriores deste veículo</h2>
             <ul className="flex flex-col gap-2">
               {historico.map((item) => (
@@ -749,7 +749,7 @@ export function DetalheOS() {
               <button onClick={() => setVideoParaCortar(null)} className="text-sm text-white/70" disabled={cortandoVideo}>Cancelar</button>
             </div>
             <video ref={videoModalRef} src={videoParaCortarUrl} className="max-h-64 w-full object-contain" playsInline />
-            <div className="bg-white p-4">
+            <div className="bg-surface p-4">
               <p className="mb-3 text-xs text-ink-soft">
                 Mova o slider para escolher o trecho de {MAX_DURACAO_VIDEO_S}s que quer enviar.
               </p>

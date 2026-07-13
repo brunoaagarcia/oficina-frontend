@@ -5,9 +5,9 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const VARIANTES: Record<string, string> = {
-  primario: 'bg-ink text-white hover:bg-ink/90',
-  secundario: 'bg-white text-ink border border-line hover:border-ink/40',
-  perigo: 'bg-white text-red-700 border border-red-200 hover:border-red-400',
+  primario: 'bg-accent text-white hover:bg-accent/90',
+  secundario: 'bg-surface text-ink border border-line hover:border-ink/40',
+  perigo: 'bg-surface text-danger border border-danger/40 hover:border-danger/70',
 };
 
 export function Botao({ variante = 'primario', className = '', ...props }: Props) {

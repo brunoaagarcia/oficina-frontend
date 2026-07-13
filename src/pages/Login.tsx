@@ -37,7 +37,7 @@ export function Login() {
         </div>
 
         {motivoLogout === 'sessao-expirada' && (
-          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <div className="mb-4 rounded-lg border border-warning/30 bg-warning-bg px-4 py-3 text-sm text-warning">
             Sessão expirada. Entre novamente para continuar.
           </div>
         )}
@@ -84,7 +84,7 @@ export function Login() {
           </div>
 
           {erro && (
-            <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>
+            <p className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{erro}</p>
           )}
 
           <Botao type="submit" disabled={enviando} className="mt-1">

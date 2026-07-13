@@ -123,7 +123,7 @@ export function Backup() {
         {mensagens.length > 0 && (
           <div className="mb-4 flex flex-col gap-2">
             {mensagens.map((msg, i) => (
-              <p key={i} className="rounded-md bg-green-50 px-3 py-2.5 text-sm text-green-800">
+              <p key={i} className="rounded-md bg-success-bg px-3 py-2.5 text-sm text-success">
                 {msg}
               </p>
             ))}
@@ -131,13 +131,13 @@ export function Backup() {
         )}
 
         {erro && (
-          <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>
+          <p className="mb-4 rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{erro}</p>
         )}
 
         {carregando && <p className="py-10 text-center text-sm text-ink-soft">Carregando...</p>}
 
         {!carregando && lista.length === 0 && (
-          <div className="rounded-lg border border-dashed border-line bg-white px-6 py-12 text-center">
+          <div className="rounded-lg border border-dashed border-line bg-surface px-6 py-12 text-center">
             <p className="text-sm text-ink-soft">Nenhuma OS com arquivos para arquivar.</p>
           </div>
         )}
@@ -153,7 +153,7 @@ export function Backup() {
             const esteExcluindo = excluindoId === os.id;
 
             return (
-              <li key={os.id} className="rounded-lg border border-line bg-white p-4">
+              <li key={os.id} className="rounded-lg border border-line bg-surface p-4">
                 <div className="mb-3">
                   <div className="flex items-start justify-between gap-2">
                     <div>
@@ -201,8 +201,8 @@ export function Backup() {
                     )}
                   </div>
                 ) : (
-                  <div className="rounded-md border border-red-200 bg-red-50 p-3">
-                    <p className="mb-2 text-xs font-medium text-red-800">
+                  <div className="rounded-md border border-danger/30 bg-danger-bg p-3">
+                    <p className="mb-2 text-xs font-medium text-danger">
                       Digite{' '}
                       <span className="font-mono font-bold">{os.veiculo.placa}</span>{' '}
                       para confirmar a exclusão permanente:
@@ -214,7 +214,7 @@ export function Backup() {
                         onChange={(e) => setPlacaDigitada(e.target.value.toUpperCase())}
                         placeholder={os.veiculo.placa}
                         autoFocus
-                        className="flex-1 rounded-md border border-red-300 bg-white px-3 py-2 font-mono text-sm text-ink focus:border-red-500 focus:outline-none"
+                        className="flex-1 rounded-md border border-danger/40 bg-surface px-3 py-2 font-mono text-sm text-ink focus:border-danger focus:outline-none"
                       />
                       <Botao
                         type="button"

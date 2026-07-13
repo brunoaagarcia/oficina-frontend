@@ -46,12 +46,12 @@ export function Painel() {
         </div>
 
         {carregando && <p className="py-10 text-center text-sm text-ink-soft">Carregando...</p>}
-        {erro && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
+        {erro && <p className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{erro}</p>}
 
         <div className="mb-5">
           <Link
             to="/backup"
-            className="flex items-center gap-3 rounded-lg border border-line bg-white px-4 py-3.5 shadow-sm transition-shadow hover:shadow-md"
+            className="flex items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3.5 shadow-sm transition-shadow hover:shadow-md"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-ink-soft">
               <polyline points="21 8 21 21 3 21 3 8" />
@@ -72,11 +72,11 @@ export function Painel() {
           <div className="flex flex-col gap-5">
             {/* KPIs */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="rounded-lg border border-line bg-white p-4">
+              <div className="rounded-lg border border-line bg-surface p-4">
                 <p className="text-xs text-ink-soft">Ordens de Serviço</p>
                 <p className="mt-1 font-display text-2xl font-bold text-ink">{dados.totalOS}</p>
               </div>
-              <div className="rounded-lg border border-line bg-white p-4">
+              <div className="rounded-lg border border-line bg-surface p-4">
                 <p className="text-xs text-ink-soft">Faturamento (mão de obra)</p>
                 <p className="mt-1 font-display text-2xl font-bold text-ink">
                   {formatarCentavos(dados.totalFaturamentoCentavos)}
@@ -85,7 +85,7 @@ export function Painel() {
             </div>
 
             {/* OS por status */}
-            <div className="rounded-lg border border-line bg-white p-4">
+            <div className="rounded-lg border border-line bg-surface p-4">
               <h2 className="mb-3 text-sm font-semibold text-ink">Ordens por status</h2>
               {totalStatus === 0 ? (
                 <p className="text-sm text-ink-soft">Nenhuma OS aberta esse mês ainda.</p>
@@ -113,7 +113,7 @@ export function Painel() {
             </div>
 
             {/* OS por semana */}
-            <div className="rounded-lg border border-line bg-white p-4">
+            <div className="rounded-lg border border-line bg-surface p-4">
               <h2 className="mb-3 text-sm font-semibold text-ink">Ordens de Serviço por semana</h2>
               {dados.osPorSemana.every((p) => p.valor === 0) ? (
                 <p className="text-sm text-ink-soft">Nenhuma OS aberta esse mês ainda.</p>
@@ -123,7 +123,7 @@ export function Painel() {
             </div>
 
             {/* Faturamento por semana */}
-            <div className="rounded-lg border border-line bg-white p-4">
+            <div className="rounded-lg border border-line bg-surface p-4">
               <h2 className="mb-3 text-sm font-semibold text-ink">Faturamento (mão de obra) por semana</h2>
               {dados.faturamentoPorSemana.every((p) => p.valor === 0) ? (
                 <p className="text-sm text-ink-soft">Nenhum lançamento esse mês ainda.</p>

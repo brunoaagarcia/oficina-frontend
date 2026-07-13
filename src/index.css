@@ -1,32 +1,40 @@
 @import "tailwindcss";
 
 /*
-  Tema "Meca Mecânica" - inspirado em ficha técnica/etiqueta de oficina:
-  fundo creme (boa leitura no pátio, sob sol), tinta quase-preta,
-  e um único acento em vermelho (cores da oficina: vermelho, preto, creme).
+  Tema "Meca Mecânica" - inspirado em ficha técnica/etiqueta de oficina,
+  em versão escura permanente: fundo preto levemente aquecido, tinta creme
+  da marca, e um único acento em vermelho (cores da oficina: vermelho,
+  preto, creme). Todos os pares texto/fundo abaixo respeitam WCAG AA (4.5:1).
 */
 @theme {
   --font-display: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
   --font-body: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
-  --color-bg: #f3ede1;
-  --color-surface: #ffffff;
-  --color-ink: #1a1a1a;
-  --color-ink-soft: #6b6259;
-  --color-line: #e0d6c4;
-  --color-accent: #b3231c;
-  --color-accent-ink: #7a1812;
-  --color-accent-soft: #f6dcd9;
+  --color-bg: #141210;
+  --color-surface: #1e1b18;
+  --color-ink: #f2ede3;
+  --color-ink-soft: #a89f92;
+  --color-line: #2e2a25;
+  --color-accent: #c73b30;
+  --color-accent-ink: #ff7a70;
+  --color-accent-soft: #3a1c19;
 
-  --color-status-orcamento: #b07d00;
-  --color-status-orcamento-bg: #fff3d6;
-  --color-status-andamento: #1d5fae;
-  --color-status-andamento-bg: #dceaff;
-  --color-status-finalizado: #2f7a4d;
-  --color-status-finalizado-bg: #def0e3;
-  --color-status-rejeitado: #6b6259;
-  --color-status-rejeitado-bg: #e8e3d8;
+  --color-danger: #ff8f87;
+  --color-danger-bg: #3a1614;
+  --color-success: #7ee0a8;
+  --color-success-bg: #14301f;
+  --color-warning: #f0c869;
+  --color-warning-bg: #3a2f14;
+
+  --color-status-orcamento: #f0c869;
+  --color-status-orcamento-bg: #3a2f14;
+  --color-status-andamento: #7db3f2;
+  --color-status-andamento-bg: #17263a;
+  --color-status-finalizado: #7ee0a8;
+  --color-status-finalizado-bg: #14301f;
+  --color-status-rejeitado: #a89f92;
+  --color-status-rejeitado-bg: #2e2a25;
 }
 
 html {

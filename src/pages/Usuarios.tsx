@@ -127,7 +127,7 @@ export function Usuarios() {
         </div>
 
         {mostrarForm && (
-          <form onSubmit={aoCriar} className="mb-5 flex flex-col gap-3 rounded-lg border border-line bg-white p-4">
+          <form onSubmit={aoCriar} className="mb-5 flex flex-col gap-3 rounded-lg border border-line bg-surface p-4">
             <Campo rotulo="Nome" id="nome" value={nome} onChange={(e) => setNome(e.target.value)} required />
             <div className="grid grid-cols-2 gap-3">
               <Campo rotulo="Login" id="login" value={login} onChange={(e) => setLogin(e.target.value)} required />
@@ -146,7 +146,7 @@ export function Usuarios() {
               <select
                 value={papel}
                 onChange={(e) => setPapel(e.target.value as PapelUsuario)}
-                className="rounded-md border border-line bg-white px-3 py-2.5 text-sm text-ink focus:border-accent"
+                className="rounded-md border border-line bg-surface px-3 py-2.5 text-sm text-ink focus:border-accent"
               >
                 <option value="MECANICO">Mecânico</option>
                 <option value="MODERADOR">Moderador</option>
@@ -158,7 +158,7 @@ export function Usuarios() {
           </form>
         )}
 
-        {erro && <p className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{erro}</p>}
+        {erro && <p className="mb-4 rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{erro}</p>}
 
         {carregando && <p className="py-6 text-center text-sm text-ink-soft">Carregando...</p>}
 
@@ -166,7 +166,7 @@ export function Usuarios() {
           {usuarios.map((u) => (
             <li key={u.id}>
               <div
-                className={`rounded-lg border bg-white transition-colors ${
+                className={`rounded-lg border bg-surface transition-colors ${
                   selecionado?.id === u.id ? 'border-accent' : 'border-line'
                 } ${u.ativo === false ? 'opacity-60' : ''}`}
               >
@@ -181,7 +181,7 @@ export function Usuarios() {
                   </span>
 
                   {u.ativo === false ? (
-                    <span className="rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-medium text-red-700">
+                    <span className="rounded-full bg-danger-bg px-2.5 py-1 text-[11px] font-medium text-danger">
                       Removido
                     </span>
                   ) : u.id !== usuarioLogado?.id ? (
@@ -200,7 +200,7 @@ export function Usuarios() {
                       <button
                         onClick={() => aoRemover(u)}
                         disabled={removendoId === u.id}
-                        className="text-xs font-medium text-ink-soft underline hover:text-red-700"
+                        className="text-xs font-medium text-ink-soft underline hover:text-danger"
                       >
                         {removendoId === u.id ? 'Removendo...' : 'Remover'}
                       </button>
@@ -233,9 +233,9 @@ export function Usuarios() {
                 )}
 
                 {senhaResetadaSucesso?.id === u.id && (
-                  <div className="border-t border-line bg-green-50 px-4 py-3 text-sm text-green-800">
+                  <div className="border-t border-line bg-success-bg px-4 py-3 text-sm text-success">
                     Senha resetada. Passe para {u.nome}: <span className="font-mono font-bold">{senhaResetadaSucesso.senha}</span>
-                    <button onClick={() => setSenhaResetadaSucesso(null)} className="ml-3 text-xs text-green-600 underline">fechar</button>
+                    <button onClick={() => setSenhaResetadaSucesso(null)} className="ml-3 text-xs text-success/80 underline">fechar</button>
                   </div>
                 )}
               </div>
@@ -260,7 +260,7 @@ export function Usuarios() {
                 <li key={os.id}>
                   <Link
                     to={`/os/${os.id}`}
-                    className="flex items-center justify-between rounded-lg border border-line bg-white px-4 py-3 hover:border-ink/40"
+                    className="flex items-center justify-between rounded-lg border border-line bg-surface px-4 py-3 hover:border-ink/40"
                   >
                     <div>
                       <p className="text-sm font-medium text-ink">{os.veiculo.cliente.nome}</p>

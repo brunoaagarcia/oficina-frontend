@@ -11,7 +11,7 @@ export function Topbar() {
           <img src="/logo.jpg" alt="meca mecânica" className="h-9 w-9 rounded-md object-cover" />
           <span className="hidden flex-col sm:flex">
             <span className="font-display text-sm font-bold leading-tight tracking-tight text-ink">Meca</span>
-            <span className="font-mono text-[10px] font-semibold leading-tight tracking-wider text-accent uppercase">
+            <span className="font-mono text-[10px] font-semibold leading-tight tracking-wider text-accent-ink uppercase">
               Mecânica
             </span>
           </span>

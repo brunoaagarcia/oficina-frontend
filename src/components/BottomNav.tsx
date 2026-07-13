@@ -7,7 +7,7 @@ export function BottomNav() {
 
   const ativo = (rota: string) =>
     pathname === rota
-      ? 'text-accent'
+      ? 'text-accent-ink'
       : 'text-ink-soft';
 
   return (
@@ -24,7 +24,7 @@ export function BottomNav() {
 
       <Link
         to="/abrir"
-        className="flex flex-1 flex-col items-center justify-center gap-0.5 text-accent"
+        className="flex flex-1 flex-col items-center justify-center gap-0.5 text-accent-ink"
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
           <circle cx="12" cy="12" r="10" />
