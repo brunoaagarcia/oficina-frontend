@@ -8,3 +8,15 @@ export function buscarVeiculoPorPlaca(placa: string) {
 export function buscarVeiculosPorTermo(termo: string) {
   return api<{ veiculos: Veiculo[] }>(`/veiculos/buscar?placa=${encodeURIComponent(termo)}`);
 }
+
+export function listarModelosVeiculo(termo: string) {
+  return api<{ modelos: { nome: string; total: number }[] }>(
+    `/veiculos/modelos?termo=${encodeURIComponent(termo)}`,
+  );
+}
+
+export function listarMarcasVeiculo(termo: string) {
+  return api<{ marcas: { nome: string; total: number }[] }>(
+    `/veiculos/marcas?termo=${encodeURIComponent(termo)}`,
+  );
+}

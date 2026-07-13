@@ -5,7 +5,7 @@ import { Campo } from '../components/Campo';
 import { Botao } from '../components/Botao';
 import { BotaoVoltar } from '../components/BotaoVoltar';
 import { buscarClientes } from '../lib/clientesApi';
-import { buscarVeiculoPorPlaca, buscarVeiculosPorTermo } from '../lib/veiculosApi';
+import { buscarVeiculoPorPlaca, buscarVeiculosPorTermo, listarModelosVeiculo, listarMarcasVeiculo } from '../lib/veiculosApi';
 import { abrirOrdemServico } from '../lib/ordensServicoApi';
 import { comprimirImagem, registrarFoto, solicitarUrlUpload, uploadParaR2 } from '../lib/fotosApi';
 import { ApiError } from '../lib/api';
@@ -73,8 +73,12 @@ export function AbrirOS() {
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debounceRefPlaca = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceRefModelo = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceRefMarca = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [sugestoesPlaca, setSugestoesPlaca] = useState<Veiculo[]>([]);
+  const [sugestoesModelo, setSugestoesModelo] = useState<{ nome: string; total: number }[]>([]);
+  const [sugestoesMarca, setSugestoesMarca] = useState<{ nome: string; total: number }[]>([]);
 
   function aoMudarPlaca(valor: string) {
     setPlaca(valor);
@@ -93,6 +97,40 @@ export function AbrirOS() {
     buscarVeiculosPorTermo(placa)
       .then(({ veiculos }) => setSugestoesPlaca(veiculos))
       .catch(() => setSugestoesPlaca([]));
+  }
+
+  function aoMudarModelo(valor: string) {
+    setModeloNovo(valor);
+    if (debounceRefModelo.current) clearTimeout(debounceRefModelo.current);
+    debounceRefModelo.current = setTimeout(() => {
+      listarModelosVeiculo(valor)
+        .then(({ modelos }) => setSugestoesModelo(modelos))
+        .catch(() => setSugestoesModelo([]));
+    }, 300);
+  }
+
+  function aoFocarCampoModelo() {
+    if (debounceRefModelo.current) clearTimeout(debounceRefModelo.current);
+    listarModelosVeiculo(modeloNovo)
+      .then(({ modelos }) => setSugestoesModelo(modelos))
+      .catch(() => setSugestoesModelo([]));
+  }
+
+  function aoMudarMarca(valor: string) {
+    setMarcaNova(valor);
+    if (debounceRefMarca.current) clearTimeout(debounceRefMarca.current);
+    debounceRefMarca.current = setTimeout(() => {
+      listarMarcasVeiculo(valor)
+        .then(({ marcas }) => setSugestoesMarca(marcas))
+        .catch(() => setSugestoesMarca([]));
+    }, 300);
+  }
+
+  function aoFocarCampoMarca() {
+    if (debounceRefMarca.current) clearTimeout(debounceRefMarca.current);
+    listarMarcasVeiculo(marcaNova)
+      .then(({ marcas }) => setSugestoesMarca(marcas))
+      .catch(() => setSugestoesMarca([]));
   }
 
   useEffect(() => {
@@ -158,6 +196,8 @@ export function AbrirOS() {
     setKmRegistrado('');
     setQueixaInicial('');
     setSugestoesPlaca([]);
+    setSugestoesModelo([]);
+    setSugestoesMarca([]);
     setErro(null);
   }
 
@@ -562,10 +602,69 @@ export function AbrirOS() {
                         <span className="font-mono font-bold tracking-widest">{placa.toUpperCase()}</span>
                       </div>
                       <div className="grid grid-cols-3 gap-3">
-                        <Campo rotulo="Modelo" id="modeloNovo" className="col-span-2" value={modeloNovo} onChange={(e) => setModeloNovo(e.target.value)} required />
+                        <div className="relative col-span-2">
+                          <Campo
+                            rotulo="Modelo"
+                            id="modeloNovo"
+                            value={modeloNovo}
+                            onChange={(e) => aoMudarModelo(e.target.value)}
+                            onFocus={aoFocarCampoModelo}
+                            onBlur={() => setTimeout(() => setSugestoesModelo([]), 150)}
+                            autoComplete="off"
+                            required
+                          />
+                          {sugestoesModelo.length > 0 && (
+                            <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-line bg-surface shadow-md">
+                              {sugestoesModelo.map((m) => (
+                                <li key={m.nome}>
+                                  <button
+                                    type="button"
+                                    onMouseDown={(e) => e.preventDefault()}
+                                    onClick={() => { setModeloNovo(m.nome); setSugestoesModelo([]); }}
+                                    className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-bg"
+                                  >
+                                    <span className="text-sm text-ink">{m.nome}</span>
+                                    <span className="ml-auto text-xs text-ink-soft">
+                                      {m.total} {m.total === 1 ? 'carro' : 'carros'}
+                                    </span>
+                                  </button>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
                         <Campo rotulo="Ano" id="anoNovo" type="number" inputMode="numeric" value={anoNovo} onChange={(e) => setAnoNovo(e.target.value)} />
                       </div>
-                      <Campo rotulo="Marca (opcional)" id="marcaNova" value={marcaNova} onChange={(e) => setMarcaNova(e.target.value)} />
+                      <div className="relative">
+                        <Campo
+                          rotulo="Marca (opcional)"
+                          id="marcaNova"
+                          value={marcaNova}
+                          onChange={(e) => aoMudarMarca(e.target.value)}
+                          onFocus={aoFocarCampoMarca}
+                          onBlur={() => setTimeout(() => setSugestoesMarca([]), 150)}
+                          autoComplete="off"
+                        />
+                        {sugestoesMarca.length > 0 && (
+                          <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-line bg-surface shadow-md">
+                            {sugestoesMarca.map((m) => (
+                              <li key={m.nome}>
+                                <button
+                                  type="button"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() => { setMarcaNova(m.nome); setSugestoesMarca([]); }}
+                                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-bg"
+                                >
+                                  <span className="text-sm text-ink">{m.nome}</span>
+                                  <span className="ml-auto text-xs text-ink-soft">
+                                    {m.total} {m.total === 1 ? 'carro' : 'carros'}
+                                  </span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
                       <Botao
                         type="button"
                         onClick={() => setVeiculoNovoConfirmado(true)}
