@@ -21,10 +21,19 @@ import {
   type SugestaoMaoDeObra,
 } from '../lib/ordensServicoApi';
 import { atualizarLegendaFoto, comprimirImagem, cortarVideo, deletarFoto, MAX_DURACAO_VIDEO_S, obterDuracaoVideo, registrarFoto, solicitarUrlUpload, uploadParaR2 } from '../lib/fotosApi';
+import {
+  adicionarItemOrcamento,
+  atualizarItemOrcamento,
+  buscarSugestoesOrcamento,
+  removerItemOrcamento,
+  type SugestaoOrcamento,
+} from '../lib/orcamentoApi';
 import { atualizarCliente } from '../lib/clientesApi';
 import { formatarCentavos, paraCentavos } from '../lib/moeda';
 import { CHECKLIST_FOTOS_ENTRADA } from '../lib/checklistFotosEntrada';
-import type { Foto, OrdemServico, StatusOrdemServico, TipoMidia, TipoPessoa, TipoValorMaoDeObra } from '../lib/types';
+import type { Foto, ItemOrcamento, OrdemServico, StatusOrdemServico, TipoItemOrcamento, TipoMidia, TipoPessoa, TipoValorMaoDeObra } from '../lib/types';
+
+const UNIDADES_COMUNS = ['un', 'par', 'jogo', 'L', 'kg', 'm', 'cx'];
 
 function formatarSegundos(s: number): string {
   const min = Math.floor(s / 60);
@@ -78,6 +87,17 @@ export function DetalheOS() {
   const [lightbox, setLightbox] = useState<{ itens: Foto[]; indice: number } | null>(null);
   const [sugestoesItem, setSugestoesItem] = useState<SugestaoMaoDeObra[]>([]);
   const debounceSugestaoRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [formOrcamento, setFormOrcamento] = useState<{ tipo: TipoItemOrcamento; itemId: string | null } | null>(null);
+  const [descricaoOrcamento, setDescricaoOrcamento] = useState('');
+  const [quantidadeOrcamento, setQuantidadeOrcamento] = useState('1');
+  const [unidadeOrcamento, setUnidadeOrcamento] = useState('un');
+  const [valorUnitarioOrcamento, setValorUnitarioOrcamento] = useState('');
+  const [fornecedorOrcamento, setFornecedorOrcamento] = useState('');
+  const [enviandoOrcamento, setEnviandoOrcamento] = useState(false);
+  const [removendoOrcamentoId, setRemovendoOrcamentoId] = useState<string | null>(null);
+  const [sugestoesOrcamento, setSugestoesOrcamento] = useState<SugestaoOrcamento[]>([]);
+  const debounceOrcamentoRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [completandoCadastro, setCompletandoCadastro] = useState(false);
   const [tipoPessoaCadastro, setTipoPessoaCadastro] = useState<TipoPessoa>('FISICA');
@@ -407,6 +427,116 @@ export function DetalheOS() {
     setSugestoesItem([]);
   }
 
+  function abrirFormNovoItemOrcamento(tipo: TipoItemOrcamento) {
+    setFormOrcamento({ tipo, itemId: null });
+    setDescricaoOrcamento('');
+    setQuantidadeOrcamento('1');
+    setUnidadeOrcamento('un');
+    setValorUnitarioOrcamento('');
+    setFornecedorOrcamento('');
+    setSugestoesOrcamento([]);
+  }
+
+  function abrirFormEdicaoItemOrcamento(item: ItemOrcamento) {
+    setFormOrcamento({ tipo: item.tipo, itemId: item.id });
+    setDescricaoOrcamento(item.descricao);
+    setQuantidadeOrcamento(String(item.quantidade));
+    setUnidadeOrcamento(item.unidade);
+    setValorUnitarioOrcamento(item.valorUnitarioCentavos != null ? (item.valorUnitarioCentavos / 100).toFixed(2) : '');
+    setFornecedorOrcamento(item.fornecedor ?? '');
+    setSugestoesOrcamento([]);
+  }
+
+  function fecharFormOrcamento() {
+    setFormOrcamento(null);
+    setSugestoesOrcamento([]);
+  }
+
+  function aoDigitarDescricaoOrcamento(valor: string) {
+    setDescricaoOrcamento(valor);
+    if (!formOrcamento) return;
+    if (debounceOrcamentoRef.current) clearTimeout(debounceOrcamentoRef.current);
+    debounceOrcamentoRef.current = setTimeout(() => {
+      buscarSugestoesOrcamento(valor.trim(), formOrcamento.tipo)
+        .then(setSugestoesOrcamento)
+        .catch(() => setSugestoesOrcamento([]));
+    }, 300);
+  }
+
+  function aoFocarDescricaoOrcamento() {
+    if (!formOrcamento) return;
+    if (debounceOrcamentoRef.current) clearTimeout(debounceOrcamentoRef.current);
+    buscarSugestoesOrcamento(descricaoOrcamento.trim(), formOrcamento.tipo)
+      .then(setSugestoesOrcamento)
+      .catch(() => setSugestoesOrcamento([]));
+  }
+
+  function aplicarSugestaoOrcamento(sugestao: SugestaoOrcamento) {
+    setDescricaoOrcamento(sugestao.descricao);
+    setUnidadeOrcamento(sugestao.unidade);
+    if (ehModerador && sugestao.valorUnitarioCentavos != null) {
+      setValorUnitarioOrcamento((sugestao.valorUnitarioCentavos / 100).toFixed(2));
+    }
+    setSugestoesOrcamento([]);
+  }
+
+  async function aoSubmeterFormOrcamento(evento: FormEvent) {
+    evento.preventDefault();
+    if (!os || !formOrcamento || !descricaoOrcamento.trim()) return;
+
+    const quantidade = quantidadeOrcamento ? Number(quantidadeOrcamento.replace(',', '.')) : 1;
+    const valorUnitarioCentavos = ehModerador && valorUnitarioOrcamento ? paraCentavos(valorUnitarioOrcamento) ?? undefined : undefined;
+
+    setEnviandoOrcamento(true);
+    setErro(null);
+    try {
+      const dados = {
+        tipo: formOrcamento.tipo,
+        descricao: descricaoOrcamento.trim(),
+        quantidade,
+        unidade: unidadeOrcamento.trim() || 'un',
+        valorUnitarioCentavos,
+        fornecedor: formOrcamento.tipo === 'TERCEIRIZADO' ? (fornecedorOrcamento.trim() || undefined) : undefined,
+      };
+
+      const item = formOrcamento.itemId
+        ? await atualizarItemOrcamento(os.id, formOrcamento.itemId, dados)
+        : await adicionarItemOrcamento(os.id, dados);
+
+      setOs((prev) => {
+        if (!prev) return prev;
+        const jaExiste = prev.itensOrcamento.some((i) => i.id === item.id);
+        return {
+          ...prev,
+          itensOrcamento: jaExiste
+            ? prev.itensOrcamento.map((i) => (i.id === item.id ? item : i))
+            : [...prev.itensOrcamento, item],
+        };
+      });
+      fecharFormOrcamento();
+    } catch (e) {
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível salvar o item de orçamento.');
+    } finally {
+      setEnviandoOrcamento(false);
+    }
+  }
+
+  async function aoRemoverItemOrcamento(itemId: string) {
+    if (!os) return;
+    const confirmado = window.confirm('Remover esse item de orçamento?');
+    if (!confirmado) return;
+    setRemovendoOrcamentoId(itemId);
+    setErro(null);
+    try {
+      await removerItemOrcamento(os.id, itemId);
+      setOs((prev) => prev ? { ...prev, itensOrcamento: prev.itensOrcamento.filter((i) => i.id !== itemId) } : prev);
+    } catch (e) {
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível remover esse item.');
+    } finally {
+      setRemovendoOrcamentoId(null);
+    }
+  }
+
   if (carregando) {
     return (
       <div className="min-h-screen bg-bg">
@@ -448,6 +578,17 @@ export function DetalheOS() {
   const fotosEntradaExtras = fotosEntrada.filter((f) => fotosEntradaPorRotulo.get(f.descricao ?? '') !== f);
 
   const cadastroClienteIncompleto = !os.veiculo.cliente.cpfCnpj || !os.veiculo.cliente.telefone;
+
+  const itensPecas = os.itensOrcamento.filter((i) => i.tipo === 'PECA');
+  const itensTerceirizados = os.itensOrcamento.filter((i) => i.tipo === 'TERCEIRIZADO');
+
+  const subtotalItemOrcamento = (item: ItemOrcamento): number | null =>
+    item.valorUnitarioCentavos != null ? Math.round(item.valorUnitarioCentavos * item.quantidade) : null;
+
+  const totalPecasCentavos = itensPecas.reduce((soma, item) => soma + (subtotalItemOrcamento(item) ?? 0), 0);
+  const totalTerceirizadosCentavos = itensTerceirizados.reduce((soma, item) => soma + (subtotalItemOrcamento(item) ?? 0), 0);
+  const totalMaoDeObraCentavos = os.itensMaoDeObra.reduce((soma, item) => soma + (item.valorTotalCentavos ?? 0), 0);
+  const totalGeralOrcamentoCentavos = totalPecasCentavos + totalTerceirizadosCentavos + totalMaoDeObraCentavos;
 
   return (
     <div className="min-h-screen bg-bg">
@@ -822,7 +963,190 @@ export function DetalheOS() {
           )}
         </div>
 
-        {/* 5. Mão de obra — só moderador */}
+        {/* 5. Orçamento: peças e serviços terceirizados */}
+        <div className="mb-5 rounded-lg border border-line bg-surface p-4">
+          <h2 className="mb-3 text-sm font-semibold text-ink">Orçamento</h2>
+
+          {([
+            { tipo: 'PECA' as const, titulo: 'Peças', itens: itensPecas },
+            { tipo: 'TERCEIRIZADO' as const, titulo: 'Serviços terceirizados', itens: itensTerceirizados },
+          ]).map((grupo, indiceGrupo) => (
+            <div key={grupo.tipo} className={indiceGrupo > 0 ? 'mt-4 border-t border-line pt-4' : ''}>
+              <div className="mb-2 flex items-center justify-between">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-soft">{grupo.titulo}</h3>
+                {podeEditar && !(formOrcamento?.tipo === grupo.tipo && formOrcamento.itemId === null) && (
+                  <button
+                    type="button"
+                    onClick={() => abrirFormNovoItemOrcamento(grupo.tipo)}
+                    className="text-xs font-medium text-accent-ink underline"
+                  >
+                    + Adicionar
+                  </button>
+                )}
+              </div>
+
+              {grupo.itens.length === 0 ? (
+                <p className="text-sm text-ink-soft">Nenhum item lançado.</p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {grupo.itens.map((item) => {
+                    const subtotal = subtotalItemOrcamento(item);
+                    return (
+                      <li key={item.id} className="flex items-start justify-between gap-2 border-l-2 border-line pl-3">
+                        <div>
+                          <p className="text-sm text-ink">
+                            {item.quantidade} {item.unidade} · {item.descricao}
+                            {item.tipo === 'TERCEIRIZADO' && item.fornecedor ? ` · ${item.fornecedor}` : ''}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-ink-soft">{item.criadoPor.nome}</p>
+                        </div>
+                        <div className="flex shrink-0 flex-col items-end gap-1">
+                          {ehModerador && subtotal != null && (
+                            <span className="font-mono text-sm font-semibold text-ink">{formatarCentavos(subtotal)}</span>
+                          )}
+                          {podeEditar && (
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => abrirFormEdicaoItemOrcamento(item)}
+                                className="text-xs text-ink-soft underline hover:text-ink"
+                              >
+                                Editar
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => aoRemoverItemOrcamento(item.id)}
+                                disabled={removendoOrcamentoId === item.id}
+                                className="text-xs text-ink-soft underline hover:text-danger"
+                              >
+                                {removendoOrcamentoId === item.id ? '...' : 'Remover'}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+
+              {formOrcamento?.tipo === grupo.tipo && (
+                <form onSubmit={aoSubmeterFormOrcamento} className="mt-3 flex flex-col gap-3 border-t border-line pt-3">
+                  <div className="relative">
+                    <Campo
+                      rotulo="Descrição"
+                      id={`descricaoOrcamento-${grupo.tipo}`}
+                      value={descricaoOrcamento}
+                      onChange={(e) => aoDigitarDescricaoOrcamento(e.target.value)}
+                      onFocus={aoFocarDescricaoOrcamento}
+                      placeholder={grupo.tipo === 'PECA' ? 'Ex: Coxim do motor' : 'Ex: Alinhamento e balanceamento'}
+                      autoComplete="off"
+                      required
+                    />
+                    {sugestoesOrcamento.length > 0 && (
+                      <ul className="absolute z-10 mt-1 w-full overflow-hidden rounded-md border border-line bg-surface shadow-md">
+                        {sugestoesOrcamento.map((s) => (
+                          <li key={s.descricao}>
+                            <button
+                              type="button"
+                              onClick={() => aplicarSugestaoOrcamento(s)}
+                              className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm hover:bg-bg"
+                            >
+                              <span className="text-ink">{s.descricao} · {s.total} {s.total === 1 ? 'uso' : 'usos'}</span>
+                              {ehModerador && s.valorUnitarioCentavos != null && (
+                                <span className="shrink-0 font-mono text-xs text-ink-soft">{formatarCentavos(s.valorUnitarioCentavos)}</span>
+                              )}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <Campo
+                      rotulo="Quantidade"
+                      id={`quantidadeOrcamento-${grupo.tipo}`}
+                      inputMode="decimal"
+                      value={quantidadeOrcamento}
+                      onChange={(e) => setQuantidadeOrcamento(e.target.value)}
+                      required
+                    />
+                    <label className="flex flex-col gap-1.5">
+                      <span className="text-xs font-medium text-ink-soft">Unidade</span>
+                      <select
+                        value={UNIDADES_COMUNS.includes(unidadeOrcamento) ? unidadeOrcamento : 'outro'}
+                        onChange={(e) => setUnidadeOrcamento(e.target.value === 'outro' ? '' : e.target.value)}
+                        className="rounded-md border border-line bg-surface px-3 py-2.5 text-sm text-ink focus:border-accent"
+                      >
+                        {UNIDADES_COMUNS.map((u) => (
+                          <option key={u} value={u}>{u}</option>
+                        ))}
+                        <option value="outro">Outra...</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  {!UNIDADES_COMUNS.includes(unidadeOrcamento) && (
+                    <Campo
+                      rotulo="Digite a unidade"
+                      id={`unidadeCustom-${grupo.tipo}`}
+                      value={unidadeOrcamento}
+                      onChange={(e) => setUnidadeOrcamento(e.target.value)}
+                      placeholder="Ex: metro linear"
+                    />
+                  )}
+
+                  {grupo.tipo === 'TERCEIRIZADO' && (
+                    <Campo
+                      rotulo="Fornecedor (opcional)"
+                      id={`fornecedorOrcamento-${grupo.tipo}`}
+                      value={fornecedorOrcamento}
+                      onChange={(e) => setFornecedorOrcamento(e.target.value)}
+                    />
+                  )}
+
+                  {ehModerador && (
+                    <Campo
+                      rotulo="Valor unitário (R$)"
+                      id={`valorUnitarioOrcamento-${grupo.tipo}`}
+                      inputMode="decimal"
+                      value={valorUnitarioOrcamento}
+                      onChange={(e) => setValorUnitarioOrcamento(e.target.value)}
+                      placeholder="Ex: 120"
+                    />
+                  )}
+
+                  <div className="flex gap-2">
+                    <Botao type="submit" disabled={enviandoOrcamento}>
+                      {enviandoOrcamento ? 'Salvando...' : formOrcamento.itemId ? 'Salvar' : 'Adicionar'}
+                    </Botao>
+                    <Botao type="button" variante="secundario" onClick={fecharFormOrcamento}>Cancelar</Botao>
+                  </div>
+                </form>
+              )}
+            </div>
+          ))}
+
+          {ehModerador && os.itensOrcamento.length > 0 && (
+            <div className="mt-4 flex flex-col gap-1 border-t border-line pt-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-ink-soft">Total peças</span>
+                <span className="font-mono text-ink">{formatarCentavos(totalPecasCentavos)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-ink-soft">Total terceirizados</span>
+                <span className="font-mono text-ink">{formatarCentavos(totalTerceirizadosCentavos)}</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between border-t border-line pt-2">
+                <span className="text-sm font-semibold text-ink">Total geral do orçamento</span>
+                <span className="font-mono text-sm font-bold text-ink">{formatarCentavos(totalGeralOrcamentoCentavos)}</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 6. Mão de obra — só moderador */}
         {ehModerador && (
           <div className="mb-5 rounded-lg border border-line bg-surface p-4">
             <div className="mb-3 flex items-center justify-between">
@@ -863,7 +1187,7 @@ export function DetalheOS() {
               <div className="mt-3 flex items-center justify-between border-t border-line pt-3">
                 <span className="text-sm font-semibold text-ink">Total mão de obra</span>
                 <span className="font-mono text-sm font-bold text-ink">
-                  {formatarCentavos(os.itensMaoDeObra.reduce((soma, item) => soma + (item.valorTotalCentavos ?? 0), 0))}
+                  {formatarCentavos(totalMaoDeObraCentavos)}
                 </span>
               </div>
             )}
@@ -909,7 +1233,7 @@ export function DetalheOS() {
           </div>
         )}
 
-        {/* 6. Histórico do veículo */}
+        {/* 7. Histórico do veículo */}
         {historico.length > 0 && (
           <div className="rounded-lg border border-line bg-surface p-4">
             <h2 className="mb-3 text-sm font-semibold text-ink">Serviços anteriores deste veículo</h2>

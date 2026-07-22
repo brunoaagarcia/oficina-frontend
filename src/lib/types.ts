@@ -93,6 +93,23 @@ export interface ItemMaoDeObra {
   createdAt: string;
 }
 
+export type TipoItemOrcamento = 'PECA' | 'TERCEIRIZADO';
+
+// Valor vem em CENTAVOS do backend (Int) - formata na tela com formatarCentavos().
+// Vem como null quando o backend esconde o preço de quem não é moderador.
+export interface ItemOrcamento {
+  id: string;
+  tipo: TipoItemOrcamento;
+  descricao: string;
+  quantidade: number;
+  unidade: string;
+  valorUnitarioCentavos?: number | null;
+  fornecedor?: string | null;
+  observacao?: string | null;
+  criadoPor: { id: string; nome: string };
+  createdAt: string;
+}
+
 export interface OrdemServico {
   id: string;
   veiculoId: string;
@@ -108,6 +125,7 @@ export interface OrdemServico {
   fotos: Foto[];
   observacoes: Observacao[];
   itensMaoDeObra: ItemMaoDeObra[];
+  itensOrcamento: ItemOrcamento[];
   totalFotosEntrada?: number;
 }
 
