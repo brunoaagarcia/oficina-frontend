@@ -57,6 +57,9 @@ export function ListaOS() {
     os.status !== 'FINALIZADO' &&
     os.status !== 'REJEITADO';
 
+  const clienteIncompleto = (os: OrdemServico) =>
+    !os.veiculo.cliente.cpfCnpj || !os.veiculo.cliente.telefone;
+
   return (
     <div className="min-h-screen bg-bg">
       <Topbar />
@@ -135,6 +138,11 @@ export function ListaOS() {
                           <line x1="1" y1="1" x2="23" y2="23" />
                         </svg>
                         sem fotos
+                      </span>
+                    )}
+                    {clienteIncompleto(os) && (
+                      <span className="rounded-full bg-warning-bg px-1.5 py-0.5 text-[10px] font-medium text-warning">
+                        cliente incompleto
                       </span>
                     )}
                   </div>

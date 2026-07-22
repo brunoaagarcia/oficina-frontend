@@ -132,3 +132,31 @@ export function atualizarLegendaFoto(osId: string, fotoId: string, descricao: st
 export function deletarFoto(osId: string, fotoId: string) {
   return api<void>(`/ordens-servico/${osId}/fotos/${fotoId}`, { method: 'DELETE' });
 }
+
+// Baixa a mídia (foto/vídeo do R2, outra origem) e dispara o salvamento no
+// aparelho. No iPhone o download direto é limitado, então preferimos
+// navigator.share (permite salvar em Fotos) quando disponível; caso
+// contrário caímos pro download normal via âncora + objectURL.
+export async function salvarMidia(url: string, nomeBase: string): Promise<void> {
+  const resposta = await fetch(url);
+  if (!resposta.ok) throw new ApiError('Não foi possível baixar a mídia.', resposta.status);
+  const blob = await resposta.blob();
+  const extensao = blob.type.split('/')[1]?.split(';')[0] || 'jpg';
+  const nomeArquivo = `${nomeBase}.${extensao}`;
+  const arquivo = new File([blob], nomeArquivo, { type: blob.type });
+
+  const nav = navigator as Navigator & { canShare?: (data?: ShareData) => boolean };
+  if (nav.canShare?.({ files: [arquivo] }) && navigator.share) {
+    await navigator.share({ files: [arquivo] });
+    return;
+  }
+
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = objectUrl;
+  link.download = nomeArquivo;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+}

@@ -5,19 +5,12 @@ import { Campo } from '../components/Campo';
 import { Botao } from '../components/Botao';
 import { BotaoVoltar } from '../components/BotaoVoltar';
 import { buscarClientes } from '../lib/clientesApi';
-import { buscarVeiculoPorPlaca, buscarVeiculosPorTermo, listarModelosVeiculo, listarMarcasVeiculo } from '../lib/veiculosApi';
+import { buscarVeiculoPorPlaca, buscarVeiculosPorTermo, listarModelosVeiculo, listarMarcasVeiculo, listarMotoresVeiculo } from '../lib/veiculosApi';
 import { abrirOrdemServico } from '../lib/ordensServicoApi';
 import { comprimirImagem, registrarFoto, solicitarUrlUpload, uploadParaR2 } from '../lib/fotosApi';
 import { ApiError } from '../lib/api';
+import { CHECKLIST_FOTOS_ENTRADA } from '../lib/checklistFotosEntrada';
 import type { Cliente, Foto, OrdemServico, TipoPessoa, Veiculo } from '../lib/types';
-
-const CHECKLIST_FOTOS_ENTRADA = [
-  { chave: 'frente', rotulo: 'Frente' },
-  { chave: 'traseira', rotulo: 'Traseira' },
-  { chave: 'lateral_esquerda', rotulo: 'Lateral esquerda' },
-  { chave: 'lateral_direita', rotulo: 'Lateral direita' },
-  { chave: 'area_problema', rotulo: 'Área do problema' },
-] as const;
 
 export function AbrirOS() {
   const navegar = useNavigate();
@@ -49,6 +42,7 @@ export function AbrirOS() {
   const [modeloNovo, setModeloNovo] = useState('');
   const [marcaNova, setMarcaNova] = useState('');
   const [anoNovo, setAnoNovo] = useState('');
+  const [motorNovo, setMotorNovo] = useState('');
   const [veiculoNovoConfirmado, setVeiculoNovoConfirmado] = useState(false);
 
   // Passo 2: serviço
@@ -75,10 +69,12 @@ export function AbrirOS() {
   const debounceRefPlaca = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debounceRefModelo = useRef<ReturnType<typeof setTimeout> | null>(null);
   const debounceRefMarca = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debounceRefMotor = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [sugestoesPlaca, setSugestoesPlaca] = useState<Veiculo[]>([]);
   const [sugestoesModelo, setSugestoesModelo] = useState<{ nome: string; total: number }[]>([]);
   const [sugestoesMarca, setSugestoesMarca] = useState<{ nome: string; total: number }[]>([]);
+  const [sugestoesMotor, setSugestoesMotor] = useState<{ nome: string; total: number }[]>([]);
 
   function aoMudarPlaca(valor: string) {
     setPlaca(valor);
@@ -131,6 +127,23 @@ export function AbrirOS() {
     listarMarcasVeiculo(marcaNova)
       .then(({ marcas }) => setSugestoesMarca(marcas))
       .catch(() => setSugestoesMarca([]));
+  }
+
+  function aoMudarMotor(valor: string) {
+    setMotorNovo(valor);
+    if (debounceRefMotor.current) clearTimeout(debounceRefMotor.current);
+    debounceRefMotor.current = setTimeout(() => {
+      listarMotoresVeiculo(valor)
+        .then(({ motores }) => setSugestoesMotor(motores))
+        .catch(() => setSugestoesMotor([]));
+    }, 300);
+  }
+
+  function aoFocarCampoMotor() {
+    if (debounceRefMotor.current) clearTimeout(debounceRefMotor.current);
+    listarMotoresVeiculo(motorNovo)
+      .then(({ motores }) => setSugestoesMotor(motores))
+      .catch(() => setSugestoesMotor([]));
   }
 
   useEffect(() => {
@@ -192,12 +205,14 @@ export function AbrirOS() {
     setModeloNovo('');
     setMarcaNova('');
     setAnoNovo('');
+    setMotorNovo('');
     setVeiculoNovoConfirmado(false);
     setKmRegistrado('');
     setQueixaInicial('');
     setSugestoesPlaca([]);
     setSugestoesModelo([]);
     setSugestoesMarca([]);
+    setSugestoesMotor([]);
     setErro(null);
   }
 
@@ -219,7 +234,7 @@ export function AbrirOS() {
   }
 
   function confirmarClienteNovo() {
-    if (!nomeBusca.trim() || !cpfCnpjCliente.trim() || !telefoneCliente.trim()) return;
+    if (!nomeBusca.trim()) return;
     setClienteNovoConfirmado(true);
   }
 
@@ -241,6 +256,7 @@ export function AbrirOS() {
     setModeloNovo('');
     setMarcaNova('');
     setAnoNovo('');
+    setMotorNovo('');
   }
 
   async function aoEnviar(evento: FormEvent) {
@@ -258,13 +274,14 @@ export function AbrirOS() {
               modelo: modeloNovo,
               marca: marcaNova || undefined,
               ano: anoNovo ? Number(anoNovo) : undefined,
-              cpfCnpjCliente: clienteSelecionado ? clienteSelecionado.cpfCnpj : cpfCnpjCliente.trim(),
+              motor: motorNovo.trim() || undefined,
               ...(clienteSelecionado
-                ? {}
+                ? { clienteId: clienteSelecionado.id }
                 : {
                     nomeCliente: nomeBusca.trim(),
                     tipoPessoaCliente,
-                    telefoneCliente,
+                    cpfCnpjCliente: cpfCnpjCliente.trim() || undefined,
+                    telefoneCliente: telefoneCliente.trim() || undefined,
                     enderecoRuaCliente: enderecoRuaCliente || undefined,
                     enderecoNumeroCliente: enderecoNumeroCliente || undefined,
                     enderecoBairroCliente: enderecoBairroCliente || undefined,
@@ -431,7 +448,7 @@ export function AbrirOS() {
                             className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-bg"
                           >
                             <span className="font-mono text-sm font-bold tracking-widest text-ink">{v.placa}</span>
-                            <span className="text-sm text-ink">{v.modelo}</span>
+                            <span className="text-sm text-ink">{v.modelo}{v.motor ? ` · ${v.motor}` : ''}</span>
                             <span className="ml-auto text-xs text-ink-soft">{v.cliente.nome}</span>
                           </button>
                         </li>
@@ -474,6 +491,7 @@ export function AbrirOS() {
                 {veiculoEncontrado.modelo}
                 {veiculoEncontrado.marca ? ` · ${veiculoEncontrado.marca}` : ''}
                 {veiculoEncontrado.ano ? ` · ${veiculoEncontrado.ano}` : ''}
+                {veiculoEncontrado.motor ? ` · ${veiculoEncontrado.motor}` : ''}
               </p>
               <p className="mt-1 text-xs text-ink-soft">Cliente: {veiculoEncontrado.cliente.nome}</p>
               <div className="mt-3 flex gap-2">
@@ -556,9 +574,12 @@ export function AbrirOS() {
                               <option value="JURIDICA">Jurídica</option>
                             </select>
                           </label>
-                          <Campo rotulo="CPF ou CNPJ" id="cpfCnpjCliente" value={cpfCnpjCliente} onChange={(e) => setCpfCnpjCliente(e.target.value)} required />
+                          <Campo rotulo="CPF ou CNPJ (opcional)" id="cpfCnpjCliente" value={cpfCnpjCliente} onChange={(e) => setCpfCnpjCliente(e.target.value)} />
                         </div>
-                        <Campo rotulo="Telefone" id="telefoneCliente" value={telefoneCliente} onChange={(e) => setTelefoneCliente(e.target.value)} required />
+                        <Campo rotulo="Telefone (opcional)" id="telefoneCliente" value={telefoneCliente} onChange={(e) => setTelefoneCliente(e.target.value)} />
+                        <p className="text-xs text-ink-soft">
+                          CPF e telefone podem ser completados depois, na tela da OS.
+                        </p>
                         <div className="grid grid-cols-3 gap-3">
                           <Campo rotulo="Rua" id="enderecoRua" className="col-span-2" value={enderecoRuaCliente} onChange={(e) => setEnderecoRuaCliente(e.target.value)} />
                           <Campo rotulo="Número" id="enderecoNumero" value={enderecoNumeroCliente} onChange={(e) => setEnderecoNumeroCliente(e.target.value)} />
@@ -571,7 +592,7 @@ export function AbrirOS() {
                         <Botao
                           type="button"
                           onClick={confirmarClienteNovo}
-                          disabled={!nomeBusca.trim() || !cpfCnpjCliente.trim() || !telefoneCliente.trim()}
+                          disabled={!nomeBusca.trim()}
                           className="self-start"
                         >
                           Confirmar cliente novo
@@ -601,26 +622,58 @@ export function AbrirOS() {
                         <span className="text-xs text-ink-soft">Placa: </span>
                         <span className="font-mono font-bold tracking-widest">{placa.toUpperCase()}</span>
                       </div>
-                      <div className="grid grid-cols-3 gap-3">
-                        <div className="relative col-span-2">
+                      <div className="relative">
+                        <Campo
+                          rotulo="Modelo"
+                          id="modeloNovo"
+                          value={modeloNovo}
+                          onChange={(e) => aoMudarModelo(e.target.value)}
+                          onFocus={aoFocarCampoModelo}
+                          onBlur={() => setTimeout(() => setSugestoesModelo([]), 150)}
+                          autoComplete="off"
+                          required
+                        />
+                        {sugestoesModelo.length > 0 && (
+                          <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-line bg-surface shadow-md">
+                            {sugestoesModelo.map((m) => (
+                              <li key={m.nome}>
+                                <button
+                                  type="button"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() => { setModeloNovo(m.nome); setSugestoesModelo([]); }}
+                                  className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-bg"
+                                >
+                                  <span className="text-sm text-ink">{m.nome}</span>
+                                  <span className="ml-auto text-xs text-ink-soft">
+                                    {m.total} {m.total === 1 ? 'carro' : 'carros'}
+                                  </span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <Campo rotulo="Ano" id="anoNovo" type="number" inputMode="numeric" value={anoNovo} onChange={(e) => setAnoNovo(e.target.value)} />
+                        <div className="relative">
                           <Campo
-                            rotulo="Modelo"
-                            id="modeloNovo"
-                            value={modeloNovo}
-                            onChange={(e) => aoMudarModelo(e.target.value)}
-                            onFocus={aoFocarCampoModelo}
-                            onBlur={() => setTimeout(() => setSugestoesModelo([]), 150)}
+                            rotulo="Motor (opcional)"
+                            id="motorNovo"
+                            value={motorNovo}
+                            onChange={(e) => aoMudarMotor(e.target.value)}
+                            onFocus={aoFocarCampoMotor}
+                            onBlur={() => setTimeout(() => setSugestoesMotor([]), 150)}
+                            placeholder="Ex: 1.6"
                             autoComplete="off"
-                            required
                           />
-                          {sugestoesModelo.length > 0 && (
+                          {sugestoesMotor.length > 0 && (
                             <ul className="absolute z-10 mt-1 max-h-56 w-full overflow-y-auto rounded-md border border-line bg-surface shadow-md">
-                              {sugestoesModelo.map((m) => (
+                              {sugestoesMotor.map((m) => (
                                 <li key={m.nome}>
                                   <button
                                     type="button"
                                     onMouseDown={(e) => e.preventDefault()}
-                                    onClick={() => { setModeloNovo(m.nome); setSugestoesModelo([]); }}
+                                    onClick={() => { setMotorNovo(m.nome); setSugestoesMotor([]); }}
                                     className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-bg"
                                   >
                                     <span className="text-sm text-ink">{m.nome}</span>
@@ -633,7 +686,6 @@ export function AbrirOS() {
                             </ul>
                           )}
                         </div>
-                        <Campo rotulo="Ano" id="anoNovo" type="number" inputMode="numeric" value={anoNovo} onChange={(e) => setAnoNovo(e.target.value)} />
                       </div>
                       <div className="relative">
                         <Campo

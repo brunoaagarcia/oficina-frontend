@@ -20,3 +20,9 @@ export function listarMarcasVeiculo(termo: string) {
     `/veiculos/marcas?termo=${encodeURIComponent(termo)}`,
   );
 }
+
+export function listarMotoresVeiculo(termo: string) {
+  return api<{ motores: { nome: string; total: number }[] }>(
+    `/veiculos/motores?termo=${encodeURIComponent(termo)}`,
+  );
+}

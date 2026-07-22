@@ -8,6 +8,23 @@ export type TipoMidia = 'FOTO' | 'VIDEO';
 
 export type CategoriaFoto = 'ENTRADA' | 'SERVICO';
 
+export type TipoNotificacao =
+  | 'OS_CRIADA'
+  | 'STATUS_ALTERADO'
+  | 'OBSERVACAO'
+  | 'FOTO'
+  | 'MAO_DE_OBRA'
+  | 'CLIENTE_ATUALIZADO';
+
+export interface Notificacao {
+  id: string;
+  tipo: TipoNotificacao;
+  texto: string;
+  ordemServicoId: string | null;
+  createdAt: string;
+  lida: boolean;
+}
+
 export interface Usuario {
   id: string;
   nome: string;
@@ -21,8 +38,8 @@ export interface Cliente {
   id: string;
   nome: string;
   tipoPessoa: TipoPessoa;
-  cpfCnpj: string;
-  telefone: string;
+  cpfCnpj?: string | null;
+  telefone?: string | null;
   enderecoRua?: string | null;
   enderecoNumero?: string | null;
   enderecoBairro?: string | null;
@@ -37,6 +54,7 @@ export interface Veiculo {
   modelo: string;
   marca?: string | null;
   ano?: number | null;
+  motor?: string | null;
   kmAtual?: number | null;
   cliente: Cliente;
 }
@@ -100,8 +118,10 @@ export interface AbrirOrdemServicoPayload {
   modelo?: string;
   marca?: string;
   ano?: number;
+  motor?: string;
   kmRegistrado?: number;
   queixaInicial?: string;
+  clienteId?: string;
   cpfCnpjCliente?: string;
   nomeCliente?: string;
   tipoPessoaCliente?: TipoPessoa;

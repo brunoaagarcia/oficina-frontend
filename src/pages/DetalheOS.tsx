@@ -6,6 +6,7 @@ import { StatusTag } from '../components/StatusTag';
 import { Botao } from '../components/Botao';
 import { Campo } from '../components/Campo';
 import { BotaoVoltar } from '../components/BotaoVoltar';
+import { Lightbox } from '../components/Lightbox';
 import { useAuth } from '../lib/AuthContext';
 import { ApiError } from '../lib/api';
 import {
@@ -20,8 +21,10 @@ import {
   type SugestaoMaoDeObra,
 } from '../lib/ordensServicoApi';
 import { atualizarLegendaFoto, comprimirImagem, cortarVideo, deletarFoto, MAX_DURACAO_VIDEO_S, obterDuracaoVideo, registrarFoto, solicitarUrlUpload, uploadParaR2 } from '../lib/fotosApi';
+import { atualizarCliente } from '../lib/clientesApi';
 import { formatarCentavos, paraCentavos } from '../lib/moeda';
-import type { OrdemServico, StatusOrdemServico, TipoMidia, TipoValorMaoDeObra } from '../lib/types';
+import { CHECKLIST_FOTOS_ENTRADA } from '../lib/checklistFotosEntrada';
+import type { Foto, OrdemServico, StatusOrdemServico, TipoMidia, TipoPessoa, TipoValorMaoDeObra } from '../lib/types';
 
 function formatarSegundos(s: number): string {
   const min = Math.floor(s / 60);
@@ -60,6 +63,7 @@ export function DetalheOS() {
   const [removendoItemId, setRemovendoItemId] = useState<string | null>(null);
 
   const [uploadandoFoto, setUploadandoFoto] = useState(false);
+  const [enviandoSlotEntrada, setEnviandoSlotEntrada] = useState<string | null>(null);
   const [removendoFotoId, setRemovendoFotoId] = useState<string | null>(null);
   const [erroFoto, setErroFoto] = useState<string | null>(null);
   const [editandoLegendaId, setEditandoLegendaId] = useState<string | null>(null);
@@ -71,8 +75,20 @@ export function DetalheOS() {
   const [inicioCorteSeg, setInicioCorteSeg] = useState(0);
   const [cortandoVideo, setCortandoVideo] = useState(false);
   const videoModalRef = useRef<HTMLVideoElement>(null);
+  const [lightbox, setLightbox] = useState<{ itens: Foto[]; indice: number } | null>(null);
   const [sugestoesItem, setSugestoesItem] = useState<SugestaoMaoDeObra[]>([]);
   const debounceSugestaoRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const [completandoCadastro, setCompletandoCadastro] = useState(false);
+  const [tipoPessoaCadastro, setTipoPessoaCadastro] = useState<TipoPessoa>('FISICA');
+  const [cpfCnpjCadastro, setCpfCnpjCadastro] = useState('');
+  const [telefoneCadastro, setTelefoneCadastro] = useState('');
+  const [enderecoRuaCadastro, setEnderecoRuaCadastro] = useState('');
+  const [enderecoNumeroCadastro, setEnderecoNumeroCadastro] = useState('');
+  const [enderecoBairroCadastro, setEnderecoBairroCadastro] = useState('');
+  const [enderecoCidadeCadastro, setEnderecoCidadeCadastro] = useState('');
+  const [enderecoEstadoCadastro, setEnderecoEstadoCadastro] = useState('');
+  const [salvandoCadastro, setSalvandoCadastro] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -198,6 +214,10 @@ export function DetalheOS() {
     }
   }
 
+  function abrirLightbox(itens: Foto[], indice: number) {
+    setLightbox({ itens, indice });
+  }
+
   function mostrarErroFoto(msg: string) {
     setErroFoto(msg);
     if (erroFotoTimerRef.current) clearTimeout(erroFotoTimerRef.current);
@@ -244,6 +264,26 @@ export function DetalheOS() {
       mostrarErroFoto(e instanceof Error ? e.message : 'Não foi possível enviar a mídia.');
     } finally {
       setUploadandoFoto(false);
+    }
+  }
+
+  async function aoAdicionarFotoEntradaSlot(chave: string, rotulo: string, evento: ChangeEvent<HTMLInputElement>) {
+    const arquivo = evento.target.files?.[0];
+    evento.target.value = '';
+    if (!arquivo || !os) return;
+
+    setEnviandoSlotEntrada(chave);
+    setErroFoto(null);
+    try {
+      const comprimido = await comprimirImagem(arquivo);
+      const { uploadUrl, key } = await solicitarUrlUpload(os.id, comprimido.type);
+      await uploadParaR2(uploadUrl, comprimido);
+      const novaFoto = await registrarFoto(os.id, key, 'FOTO', rotulo, 'ENTRADA');
+      setOs((prev) => (prev ? { ...prev, fotos: [...prev.fotos, novaFoto] } : prev));
+    } catch (e) {
+      mostrarErroFoto(e instanceof Error ? e.message : 'Não foi possível enviar a foto.');
+    } finally {
+      setEnviandoSlotEntrada(null);
     }
   }
 
@@ -301,6 +341,46 @@ export function DetalheOS() {
     }
   }
 
+  function iniciarCompletarCadastro() {
+    if (!os) return;
+    const cliente = os.veiculo.cliente;
+    setTipoPessoaCadastro(cliente.tipoPessoa);
+    setCpfCnpjCadastro(cliente.cpfCnpj ?? '');
+    setTelefoneCadastro(cliente.telefone ?? '');
+    setEnderecoRuaCadastro(cliente.enderecoRua ?? '');
+    setEnderecoNumeroCadastro(cliente.enderecoNumero ?? '');
+    setEnderecoBairroCadastro(cliente.enderecoBairro ?? '');
+    setEnderecoCidadeCadastro(cliente.enderecoCidade ?? '');
+    setEnderecoEstadoCadastro(cliente.enderecoEstado ?? '');
+    setCompletandoCadastro(true);
+  }
+
+  async function aoSalvarCadastro(evento: FormEvent) {
+    evento.preventDefault();
+    if (!os) return;
+    setSalvandoCadastro(true);
+    setErro(null);
+    try {
+      const clienteAtualizado = await atualizarCliente(os.veiculo.cliente.id, {
+        nome: os.veiculo.cliente.nome,
+        tipoPessoa: tipoPessoaCadastro,
+        cpfCnpj: cpfCnpjCadastro.trim() || undefined,
+        telefone: telefoneCadastro.trim() || undefined,
+        enderecoRua: enderecoRuaCadastro || undefined,
+        enderecoNumero: enderecoNumeroCadastro || undefined,
+        enderecoBairro: enderecoBairroCadastro || undefined,
+        enderecoCidade: enderecoCidadeCadastro || undefined,
+        enderecoEstado: enderecoEstadoCadastro || undefined,
+      });
+      setOs((prev) => prev ? { ...prev, veiculo: { ...prev.veiculo, cliente: clienteAtualizado } } : prev);
+      setCompletandoCadastro(false);
+    } catch (e) {
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível salvar o cadastro.');
+    } finally {
+      setSalvandoCadastro(false);
+    }
+  }
+
   function aoDigitarDescricaoItem(valor: string) {
     setDescricaoItemNovo(valor);
     if (debounceSugestaoRef.current) clearTimeout(debounceSugestaoRef.current);
@@ -352,6 +432,23 @@ export function DetalheOS() {
   const fotosEntrada = os.fotos.filter((f) => f.categoria === 'ENTRADA');
   const fotosServico = os.fotos.filter((f) => f.categoria !== 'ENTRADA');
 
+  // Fotos de entrada que batem com um dos 5 rótulos do checklist viram os
+  // slots visuais (mesmo formato da abertura da OS); o resto continua
+  // listado embaixo como já era antes.
+  const rotulosChecklist = new Set<string>(CHECKLIST_FOTOS_ENTRADA.map((item) => item.rotulo));
+  const fotosEntradaPorRotulo = new Map<string, Foto>();
+  fotosEntrada.forEach((f) => {
+    if (f.descricao && rotulosChecklist.has(f.descricao) && !fotosEntradaPorRotulo.has(f.descricao)) {
+      fotosEntradaPorRotulo.set(f.descricao, f);
+    }
+  });
+  const fotosEntradaChecklist = CHECKLIST_FOTOS_ENTRADA
+    .map((item) => fotosEntradaPorRotulo.get(item.rotulo))
+    .filter((f): f is Foto => Boolean(f));
+  const fotosEntradaExtras = fotosEntrada.filter((f) => fotosEntradaPorRotulo.get(f.descricao ?? '') !== f);
+
+  const cadastroClienteIncompleto = !os.veiculo.cliente.cpfCnpj || !os.veiculo.cliente.telefone;
+
   return (
     <div className="min-h-screen bg-bg">
       <Topbar />
@@ -365,19 +462,70 @@ export function DetalheOS() {
             <div>
               <p className="font-mono text-lg font-bold tracking-wide text-ink">{os.veiculo.placa}</p>
               <p className="text-sm text-ink-soft">
-                {os.veiculo.modelo} {os.veiculo.marca ? `· ${os.veiculo.marca}` : ''}
+                {[os.veiculo.modelo, os.veiculo.marca, os.veiculo.ano ? String(os.veiculo.ano) : null, os.veiculo.motor]
+                  .filter(Boolean)
+                  .join(' · ')}
               </p>
             </div>
             <StatusTag status={os.status} />
           </div>
           <div className="mt-3 border-t border-line pt-3 text-sm">
             <p className="text-ink">{os.veiculo.cliente.nome}</p>
-            <p className="text-ink-soft">{os.veiculo.cliente.telefone}</p>
+            {os.veiculo.cliente.telefone && <p className="text-ink-soft">{os.veiculo.cliente.telefone}</p>}
           </div>
           <div className="mt-3 border-t border-line pt-3 text-xs text-ink-soft">
             Aberta em {formatarDataHora(os.createdAt)} por {os.criadoPor.nome}
           </div>
         </div>
+
+        {cadastroClienteIncompleto && !completandoCadastro && (
+          <div className="mb-5 flex items-center justify-between gap-3 rounded-lg border border-warning/30 bg-warning-bg px-4 py-3 text-sm text-warning">
+            <span>Cadastro do cliente incompleto.</span>
+            <button
+              type="button"
+              onClick={iniciarCompletarCadastro}
+              className="shrink-0 rounded-md border border-warning/40 px-3 py-1.5 text-xs font-medium text-warning hover:bg-warning/10"
+            >
+              Completar cadastro
+            </button>
+          </div>
+        )}
+
+        {completandoCadastro && (
+          <div className="mb-5 rounded-lg border border-line bg-surface p-4">
+            <h2 className="mb-3 text-sm font-semibold text-ink">Completar cadastro do cliente</h2>
+            <form onSubmit={aoSalvarCadastro} className="flex flex-col gap-3">
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1.5">
+                  <span className="text-xs font-medium text-ink-soft">Tipo de pessoa</span>
+                  <select
+                    value={tipoPessoaCadastro}
+                    onChange={(e) => setTipoPessoaCadastro(e.target.value as TipoPessoa)}
+                    className="rounded-md border border-line bg-surface px-3 py-2.5 text-sm text-ink focus:border-accent"
+                  >
+                    <option value="FISICA">Física</option>
+                    <option value="JURIDICA">Jurídica</option>
+                  </select>
+                </label>
+                <Campo rotulo="CPF ou CNPJ" id="cpfCnpjCadastro" value={cpfCnpjCadastro} onChange={(e) => setCpfCnpjCadastro(e.target.value)} />
+              </div>
+              <Campo rotulo="Telefone" id="telefoneCadastro" value={telefoneCadastro} onChange={(e) => setTelefoneCadastro(e.target.value)} />
+              <div className="grid grid-cols-3 gap-3">
+                <Campo rotulo="Rua" id="enderecoRuaCadastro" className="col-span-2" value={enderecoRuaCadastro} onChange={(e) => setEnderecoRuaCadastro(e.target.value)} />
+                <Campo rotulo="Número" id="enderecoNumeroCadastro" value={enderecoNumeroCadastro} onChange={(e) => setEnderecoNumeroCadastro(e.target.value)} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Campo rotulo="Bairro" id="enderecoBairroCadastro" value={enderecoBairroCadastro} onChange={(e) => setEnderecoBairroCadastro(e.target.value)} />
+                <Campo rotulo="Cidade" id="enderecoCidadeCadastro" value={enderecoCidadeCadastro} onChange={(e) => setEnderecoCidadeCadastro(e.target.value)} />
+              </div>
+              <Campo rotulo="Estado (UF)" id="enderecoEstadoCadastro" maxLength={2} value={enderecoEstadoCadastro} onChange={(e) => setEnderecoEstadoCadastro(e.target.value.toUpperCase())} />
+              <div className="flex gap-2">
+                <Botao type="submit" disabled={salvandoCadastro}>{salvandoCadastro ? 'Salvando...' : 'Salvar cadastro'}</Botao>
+                <Botao type="button" variante="secundario" onClick={() => setCompletandoCadastro(false)}>Cancelar</Botao>
+              </div>
+            </form>
+          </div>
+        )}
 
         {erro && <p className="mb-4 rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{erro}</p>}
 
@@ -388,7 +536,7 @@ export function DetalheOS() {
           {os.queixaInicial && (
             <div className="mb-4">
               <p className="mb-1 text-xs font-medium text-ink-soft">Queixa inicial</p>
-              <p className="text-sm text-ink">"{os.queixaInicial}"</p>
+              <p className="whitespace-pre-line text-sm text-ink">"{os.queixaInicial}"</p>
             </div>
           )}
 
@@ -418,13 +566,82 @@ export function DetalheOS() {
 
           <div className="border-t border-line pt-3">
             <p className="mb-2 text-xs font-medium text-ink-soft">Fotos de entrada</p>
-            {fotosEntrada.length === 0 ? (
-              <p className="text-sm text-ink-soft">Nenhuma foto de entrada.</p>
-            ) : (
-              <div className="grid grid-cols-3 gap-2">
-                {fotosEntrada.map((foto) => (
+
+            <div className="grid grid-cols-2 gap-3">
+              {CHECKLIST_FOTOS_ENTRADA.map((item) => {
+                const foto = fotosEntradaPorRotulo.get(item.rotulo);
+                const enviandoEsta = enviandoSlotEntrada === item.chave;
+                const indiceNoChecklist = foto ? fotosEntradaChecklist.findIndex((f) => f.id === foto.id) : -1;
+
+                return (
+                  <div key={item.chave}>
+                    {foto ? (
+                      <div
+                        className="relative aspect-square w-full cursor-pointer overflow-hidden rounded-xl border-2 border-green-500 bg-black"
+                        onClick={() => abrirLightbox(fotosEntradaChecklist, indiceNoChecklist)}
+                      >
+                        <img src={foto.url} alt={item.rotulo} className="h-full w-full object-cover opacity-90" />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500 text-white">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          </span>
+                        </div>
+                        {podeEditar && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); aoRemoverFoto(foto.id); }}
+                            disabled={removendoFotoId === foto.id}
+                            className="absolute right-1 top-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] text-white"
+                          >
+                            {removendoFotoId === foto.id ? '...' : '✕'}
+                          </button>
+                        )}
+                      </div>
+                    ) : podeEditar ? (
+                      <label className="cursor-pointer">
+                        <div className="relative aspect-square w-full overflow-hidden rounded-xl border-2 border-dashed border-line bg-bg transition-colors hover:border-ink/30">
+                          {enviandoEsta ? (
+                            <div className="flex h-full items-center justify-center">
+                              <p className="text-xs text-ink-soft">Enviando...</p>
+                            </div>
+                          ) : (
+                            <div className="flex h-full flex-col items-center justify-center gap-2 text-ink-soft">
+                              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M4 7h3l2-2h6l2 2h3v12H4z" />
+                                <circle cx="12" cy="13" r="3" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp,image/heic"
+                          capture="environment"
+                          className="hidden"
+                          onChange={(e) => aoAdicionarFotoEntradaSlot(item.chave, item.rotulo, e)}
+                          disabled={enviandoEsta}
+                        />
+                      </label>
+                    ) : (
+                      <div className="flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-line bg-bg text-ink-soft/40">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M4 7h3l2-2h6l2 2h3v12H4z" />
+                          <circle cx="12" cy="13" r="3" />
+                        </svg>
+                      </div>
+                    )}
+                    <p className="mt-1.5 text-center text-xs font-medium text-ink">{item.rotulo}</p>
+                  </div>
+                );
+              })}
+            </div>
+
+            {fotosEntradaExtras.length > 0 && (
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                {fotosEntradaExtras.map((foto, indice) => (
                   <div key={foto.id}>
-                    <div className="relative">
+                    <div className="relative cursor-pointer" onClick={() => abrirLightbox(fotosEntradaExtras, indice)}>
                       <img
                         src={foto.url}
                         alt={foto.descricao ?? 'Foto de entrada'}
@@ -432,7 +649,7 @@ export function DetalheOS() {
                       />
                       {podeEditar && (
                         <button
-                          onClick={() => aoRemoverFoto(foto.id)}
+                          onClick={(e) => { e.stopPropagation(); aoRemoverFoto(foto.id); }}
                           disabled={removendoFotoId === foto.id}
                           className="absolute right-1 top-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] text-white"
                         >
@@ -489,7 +706,7 @@ export function DetalheOS() {
             <ul className="flex flex-col gap-3">
               {os.observacoes.map((obs) => (
                 <li key={obs.id} className="border-l-2 border-line pl-3">
-                  <p className="text-sm text-ink">{obs.texto}</p>
+                  <p className="whitespace-pre-line text-sm text-ink">{obs.texto}</p>
                   <p className="mt-0.5 text-[11px] text-ink-soft">
                     {obs.autor.nome} · {formatarDataHora(obs.createdAt)}
                   </p>
@@ -549,17 +766,17 @@ export function DetalheOS() {
             <p className="text-sm text-ink-soft">Nenhuma foto do serviço ainda.</p>
           ) : (
             <div className="grid grid-cols-3 gap-2">
-              {fotosServico.map((foto) => (
+              {fotosServico.map((foto, indice) => (
                 <div key={foto.id}>
-                  <div className="relative">
+                  <div className="relative cursor-pointer" onClick={() => abrirLightbox(fotosServico, indice)}>
                     {foto.tipo === 'VIDEO' ? (
-                      <video src={foto.url} className="aspect-square w-full rounded-md object-cover" controls preload="metadata" />
+                      <video src={foto.url} className="aspect-square w-full rounded-md object-cover" preload="metadata" />
                     ) : (
                       <img src={foto.url} alt={foto.descricao ?? 'Foto'} className="aspect-square w-full rounded-md object-cover" />
                     )}
                     {podeEditar && (
                       <button
-                        onClick={() => aoRemoverFoto(foto.id)}
+                        onClick={(e) => { e.stopPropagation(); aoRemoverFoto(foto.id); }}
                         disabled={removendoFotoId === foto.id}
                         className="absolute right-1 top-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] text-white"
                       >
@@ -776,6 +993,15 @@ export function DetalheOS() {
             </div>
           </div>
         </div>
+      )}
+
+      {lightbox && (
+        <Lightbox
+          itens={lightbox.itens}
+          indiceInicial={lightbox.indice}
+          placa={os.veiculo.placa}
+          aoFechar={() => setLightbox(null)}
+        />
       )}
     </div>
   );

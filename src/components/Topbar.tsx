@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
+import { SinoNotificacoes } from './SinoNotificacoes';
 
 export function Topbar() {
   const { usuario, sair } = useAuth();
@@ -41,6 +42,7 @@ export function Topbar() {
                 {usuario.papel === 'MODERADOR' ? 'Moderadora' : 'Mecânico'}
               </span>
             </span>
+            <SinoNotificacoes />
             <button
               onClick={sair}
               className="rounded-md border border-line px-3 py-1.5 text-xs font-medium text-ink-soft hover:border-ink/40 hover:text-ink"
