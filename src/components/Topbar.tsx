@@ -29,6 +29,12 @@ export function Topbar() {
                   Painel
                 </Link>
                 <Link
+                  to="/clientes"
+                  className="hidden text-xs font-medium text-ink-soft hover:text-ink sm:block"
+                >
+                  Clientes
+                </Link>
+                <Link
                   to="/usuarios"
                   className="hidden text-xs font-medium text-ink-soft hover:text-ink sm:block"
                 >

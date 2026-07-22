@@ -48,7 +48,24 @@ export function Painel() {
         {carregando && <p className="py-10 text-center text-sm text-ink-soft">Carregando...</p>}
         {erro && <p className="rounded-md bg-danger-bg px-3 py-2 text-sm text-danger">{erro}</p>}
 
-        <div className="mb-5">
+        <div className="mb-5 flex flex-col gap-3">
+          <Link
+            to="/clientes"
+            className="flex items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3.5 shadow-sm transition-shadow hover:shadow-md"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-ink-soft">
+              <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+            <div>
+              <p className="text-sm font-medium text-ink">Clientes</p>
+              <p className="text-xs text-ink-soft">Ver dados cadastrais, veículos e histórico de OS</p>
+            </div>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="ml-auto shrink-0 text-ink-soft">
+              <path d="M9 6l6 6-6 6" />
+            </svg>
+          </Link>
+
           <Link
             to="/backup"
             className="flex items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3.5 shadow-sm transition-shadow hover:shadow-md"

@@ -9,6 +9,8 @@ import { DetalheOS } from './pages/DetalheOS';
 import { Usuarios } from './pages/Usuarios';
 import { Painel } from './pages/Painel';
 import { Backup } from './pages/Backup';
+import { Clientes } from './pages/Clientes';
+import { DetalheCliente } from './pages/DetalheCliente';
 
 export default function App() {
   return (
@@ -69,6 +71,22 @@ export default function App() {
             element={
               <RotaProtegida>
                 <Backup />
+              </RotaProtegida>
+            }
+          />
+          <Route
+            path="/clientes"
+            element={
+              <RotaProtegida>
+                <Clientes />
+              </RotaProtegida>
+            }
+          />
+          <Route
+            path="/clientes/:id"
+            element={
+              <RotaProtegida>
+                <DetalheCliente />
               </RotaProtegida>
             }
           />

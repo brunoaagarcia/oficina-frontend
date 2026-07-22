@@ -34,6 +34,7 @@ import { CHECKLIST_FOTOS_ENTRADA } from '../lib/checklistFotosEntrada';
 import type { Foto, ItemOrcamento, OrdemServico, StatusOrdemServico, TipoItemOrcamento, TipoMidia, TipoPessoa, TipoValorMaoDeObra } from '../lib/types';
 
 const UNIDADES_COMUNS = ['un', 'par', 'jogo', 'L', 'kg', 'm', 'cx'];
+const LIMITE_MINIATURAS = 6;
 
 function formatarSegundos(s: number): string {
   const min = Math.floor(s / 60);
@@ -85,6 +86,8 @@ export function DetalheOS() {
   const [cortandoVideo, setCortandoVideo] = useState(false);
   const videoModalRef = useRef<HTMLVideoElement>(null);
   const [lightbox, setLightbox] = useState<{ itens: Foto[]; indice: number } | null>(null);
+  const [mostrarTodasFotosEntradaExtras, setMostrarTodasFotosEntradaExtras] = useState(false);
+  const [mostrarTodasFotosServico, setMostrarTodasFotosServico] = useState(false);
   const [sugestoesItem, setSugestoesItem] = useState<SugestaoMaoDeObra[]>([]);
   const debounceSugestaoRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -577,6 +580,14 @@ export function DetalheOS() {
     .filter((f): f is Foto => Boolean(f));
   const fotosEntradaExtras = fotosEntrada.filter((f) => fotosEntradaPorRotulo.get(f.descricao ?? '') !== f);
 
+  const fotosEntradaExtrasVisiveis = mostrarTodasFotosEntradaExtras
+    ? fotosEntradaExtras
+    : fotosEntradaExtras.slice(0, LIMITE_MINIATURAS);
+  const totalFotosEntradaExtrasOcultas = fotosEntradaExtras.length - LIMITE_MINIATURAS;
+
+  const fotosServicoVisiveis = mostrarTodasFotosServico ? fotosServico : fotosServico.slice(0, LIMITE_MINIATURAS);
+  const totalFotosServicoOcultas = fotosServico.length - LIMITE_MINIATURAS;
+
   const cadastroClienteIncompleto = !os.veiculo.cliente.cpfCnpj || !os.veiculo.cliente.telefone;
 
   const itensPecas = os.itensOrcamento.filter((i) => i.tipo === 'PECA');
@@ -708,7 +719,7 @@ export function DetalheOS() {
           <div className="border-t border-line pt-3">
             <p className="mb-2 text-xs font-medium text-ink-soft">Fotos de entrada</p>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-5">
               {CHECKLIST_FOTOS_ENTRADA.map((item) => {
                 const foto = fotosEntradaPorRotulo.get(item.rotulo);
                 const enviandoEsta = enviandoSlotEntrada === item.chave;
@@ -718,13 +729,13 @@ export function DetalheOS() {
                   <div key={item.chave}>
                     {foto ? (
                       <div
-                        className="relative aspect-square w-full cursor-pointer overflow-hidden rounded-xl border-2 border-green-500 bg-black"
+                        className="relative aspect-square w-full cursor-pointer overflow-hidden rounded-md border-2 border-green-500 bg-black"
                         onClick={() => abrirLightbox(fotosEntradaChecklist, indiceNoChecklist)}
                       >
                         <img src={foto.url} alt={item.rotulo} className="h-full w-full object-cover opacity-90" />
                         <div className="absolute inset-0 flex items-center justify-center">
-                          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-green-500 text-white">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-green-500 text-white">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
                               <polyline points="20 6 9 17 4 12" />
                             </svg>
                           </span>
@@ -733,7 +744,7 @@ export function DetalheOS() {
                           <button
                             onClick={(e) => { e.stopPropagation(); aoRemoverFoto(foto.id); }}
                             disabled={removendoFotoId === foto.id}
-                            className="absolute right-1 top-1 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] text-white"
+                            className="absolute right-0.5 top-0.5 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] text-white"
                           >
                             {removendoFotoId === foto.id ? '...' : '✕'}
                           </button>
@@ -741,14 +752,14 @@ export function DetalheOS() {
                       </div>
                     ) : podeEditar ? (
                       <label className="cursor-pointer">
-                        <div className="relative aspect-square w-full overflow-hidden rounded-xl border-2 border-dashed border-line bg-bg transition-colors hover:border-ink/30">
+                        <div className="relative aspect-square w-full overflow-hidden rounded-md border-2 border-dashed border-line bg-bg transition-colors hover:border-ink/30">
                           {enviandoEsta ? (
                             <div className="flex h-full items-center justify-center">
-                              <p className="text-xs text-ink-soft">Enviando...</p>
+                              <p className="text-[9px] text-ink-soft">Enviando...</p>
                             </div>
                           ) : (
                             <div className="flex h-full flex-col items-center justify-center gap-2 text-ink-soft">
-                              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                                 <path d="M4 7h3l2-2h6l2 2h3v12H4z" />
                                 <circle cx="12" cy="13" r="3" />
                               </svg>
@@ -765,14 +776,14 @@ export function DetalheOS() {
                         />
                       </label>
                     ) : (
-                      <div className="flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-line bg-bg text-ink-soft/40">
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <div className="flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed border-line bg-bg text-ink-soft/40">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M4 7h3l2-2h6l2 2h3v12H4z" />
                           <circle cx="12" cy="13" r="3" />
                         </svg>
                       </div>
                     )}
-                    <p className="mt-1.5 text-center text-xs font-medium text-ink">{item.rotulo}</p>
+                    <p className="mt-1 truncate text-center text-[10px] font-medium text-ink">{item.rotulo}</p>
                   </div>
                 );
               })}
@@ -780,7 +791,12 @@ export function DetalheOS() {
 
             {fotosEntradaExtras.length > 0 && (
               <div className="mt-3 grid grid-cols-3 gap-2">
-                {fotosEntradaExtras.map((foto, indice) => (
+                {fotosEntradaExtrasVisiveis.map((foto, indice) => {
+                  const ehUltimaComOcultas =
+                    !mostrarTodasFotosEntradaExtras &&
+                    totalFotosEntradaExtrasOcultas > 0 &&
+                    indice === fotosEntradaExtrasVisiveis.length - 1;
+                  return (
                   <div key={foto.id}>
                     <div className="relative cursor-pointer" onClick={() => abrirLightbox(fotosEntradaExtras, indice)}>
                       <img
@@ -788,6 +804,11 @@ export function DetalheOS() {
                         alt={foto.descricao ?? 'Foto de entrada'}
                         className="aspect-square w-full rounded-md object-cover"
                       />
+                      {ehUltimaComOcultas && (
+                        <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/60">
+                          <span className="text-sm font-semibold text-white">+{totalFotosEntradaExtrasOcultas}</span>
+                        </div>
+                      )}
                       {podeEditar && (
                         <button
                           onClick={(e) => { e.stopPropagation(); aoRemoverFoto(foto.id); }}
@@ -831,8 +852,19 @@ export function DetalheOS() {
                       </button>
                     ) : null}
                   </div>
-                ))}
+                  );
+                })}
               </div>
+            )}
+
+            {fotosEntradaExtras.length > LIMITE_MINIATURAS && (
+              <button
+                type="button"
+                onClick={() => setMostrarTodasFotosEntradaExtras((v) => !v)}
+                className="mt-3 flex min-h-[44px] w-full items-center justify-center rounded-md border border-line text-xs font-medium text-ink-soft hover:border-ink/40 hover:text-ink"
+              >
+                {mostrarTodasFotosEntradaExtras ? 'Ver menos' : `Ver todas (${fotosEntradaExtras.length})`}
+              </button>
             )}
           </div>
         </div>
@@ -907,13 +939,23 @@ export function DetalheOS() {
             <p className="text-sm text-ink-soft">Nenhuma foto do serviço ainda.</p>
           ) : (
             <div className="grid grid-cols-3 gap-2">
-              {fotosServico.map((foto, indice) => (
+              {fotosServicoVisiveis.map((foto, indice) => {
+                const ehUltimaComOcultas =
+                  !mostrarTodasFotosServico &&
+                  totalFotosServicoOcultas > 0 &&
+                  indice === fotosServicoVisiveis.length - 1;
+                return (
                 <div key={foto.id}>
                   <div className="relative cursor-pointer" onClick={() => abrirLightbox(fotosServico, indice)}>
                     {foto.tipo === 'VIDEO' ? (
                       <video src={foto.url} className="aspect-square w-full rounded-md object-cover" preload="metadata" />
                     ) : (
                       <img src={foto.url} alt={foto.descricao ?? 'Foto'} className="aspect-square w-full rounded-md object-cover" />
+                    )}
+                    {ehUltimaComOcultas && (
+                      <div className="absolute inset-0 flex items-center justify-center rounded-md bg-black/60">
+                        <span className="text-sm font-semibold text-white">+{totalFotosServicoOcultas}</span>
+                      </div>
                     )}
                     {podeEditar && (
                       <button
@@ -958,8 +1000,19 @@ export function DetalheOS() {
                     </button>
                   ) : null}
                 </div>
-              ))}
+                );
+              })}
             </div>
+          )}
+
+          {fotosServico.length > LIMITE_MINIATURAS && (
+            <button
+              type="button"
+              onClick={() => setMostrarTodasFotosServico((v) => !v)}
+              className="mt-3 flex min-h-[44px] w-full items-center justify-center rounded-md border border-line text-xs font-medium text-ink-soft hover:border-ink/40 hover:text-ink"
+            >
+              {mostrarTodasFotosServico ? 'Ver menos' : `Ver todas (${fotosServico.length})`}
+            </button>
           )}
         </div>
 
