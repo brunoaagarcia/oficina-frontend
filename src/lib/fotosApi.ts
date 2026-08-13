@@ -12,40 +12,52 @@ export function solicitarUrlUpload(osId: string, contentType: string) {
   );
 }
 
-// Reduz resolução e comprime imagem no navegador antes de enviar pro R2
+// Reduz resolução e comprime imagem no navegador antes de enviar pro R2.
+// Se a compressão falhar por qualquer motivo (foto muito grande pro canvas,
+// arquivo do Google Photos ainda não baixado do backup na nuvem, formato que
+// o navegador não decodifica, etc.) manda a foto original em vez de travar
+// o envio - melhor subir sem comprimir do que não subir.
 export async function comprimirImagem(arquivo: File): Promise<File> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(arquivo);
-    img.onload = () => {
-      URL.revokeObjectURL(url);
-      let { width, height } = img;
-      if (width > MAX_DIMENSAO || height > MAX_DIMENSAO) {
-        if (width > height) {
-          height = Math.round((height * MAX_DIMENSAO) / width);
-          width = MAX_DIMENSAO;
-        } else {
-          width = Math.round((width * MAX_DIMENSAO) / height);
-          height = MAX_DIMENSAO;
+  try {
+    return await new Promise<File>((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(arquivo);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        try {
+          let { width, height } = img;
+          if (width > MAX_DIMENSAO || height > MAX_DIMENSAO) {
+            if (width > height) {
+              height = Math.round((height * MAX_DIMENSAO) / width);
+              width = MAX_DIMENSAO;
+            } else {
+              width = Math.round((width * MAX_DIMENSAO) / height);
+              height = MAX_DIMENSAO;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d')!;
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob(
+            (blob) => {
+              if (!blob) { reject(new Error('Falha ao comprimir imagem.')); return; }
+              resolve(new File([blob], arquivo.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
+            },
+            'image/jpeg',
+            QUALIDADE_JPEG,
+          );
+        } catch (erroInterno) {
+          reject(erroInterno);
         }
-      }
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d')!;
-      ctx.drawImage(img, 0, 0, width, height);
-      canvas.toBlob(
-        (blob) => {
-          if (!blob) { reject(new Error('Falha ao comprimir imagem.')); return; }
-          resolve(new File([blob], arquivo.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }));
-        },
-        'image/jpeg',
-        QUALIDADE_JPEG,
-      );
-    };
-    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Não foi possível ler a imagem.')); };
-    img.src = url;
-  });
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('Não foi possível ler a imagem.')); };
+      img.src = url;
+    });
+  } catch {
+    return arquivo;
+  }
 }
 
 export function obterDuracaoVideo(arquivo: File): Promise<number> {
@@ -147,8 +159,15 @@ export async function salvarMidia(url: string, nomeBase: string): Promise<void> 
 
   const nav = navigator as Navigator & { canShare?: (data?: ShareData) => boolean };
   if (nav.canShare?.({ files: [arquivo] }) && navigator.share) {
-    await navigator.share({ files: [arquivo] });
-    return;
+    try {
+      await navigator.share({ files: [arquivo] });
+      return;
+    } catch (erro) {
+      // Usuário cancelou o compartilhamento de propósito - não força download.
+      if (erro instanceof DOMException && erro.name === 'AbortError') return;
+      // Outro motivo (ex: arquivo grande demais pra API de compartilhamento)
+      // - cai pro download normal abaixo em vez de travar aqui.
+    }
   }
 
   const objectUrl = URL.createObjectURL(blob);
