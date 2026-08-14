@@ -110,6 +110,18 @@ export interface ItemOrcamento {
   createdAt: string;
 }
 
+// Checklist simples de "coisas a fazer no carro", sem valor - qualquer
+// usuário cria e marca como concluída.
+export interface Tarefa {
+  id: string;
+  descricao: string;
+  concluida: boolean;
+  criadoPor: { id: string; nome: string };
+  createdAt: string;
+  concluidoPor?: { id: string; nome: string } | null;
+  concluidoEm?: string | null;
+}
+
 export interface OrdemServico {
   id: string;
   veiculoId: string;
@@ -126,6 +138,7 @@ export interface OrdemServico {
   observacoes: Observacao[];
   itensMaoDeObra: ItemMaoDeObra[];
   itensOrcamento: ItemOrcamento[];
+  tarefas: Tarefa[];
   totalFotosEntrada?: number;
 }
 

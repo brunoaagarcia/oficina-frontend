@@ -139,18 +139,29 @@ export function DetalheCliente() {
           </div>
 
           {!editando ? (
-            <div className="mt-3 border-t border-line pt-3 text-sm">
-              <p className="text-ink">{cliente.telefone || '—'}</p>
-              <p className="font-mono text-ink-soft">{cliente.cpfCnpj || 'CPF/CNPJ não informado'}</p>
-              {(enderecoCompleto || cliente.enderecoCidade) && (
-                <p className="mt-1 text-ink-soft">
-                  {enderecoCompleto}
-                  {cliente.enderecoBairro ? ` · ${cliente.enderecoBairro}` : ''}
-                  {cliente.enderecoCidade ? ` · ${cliente.enderecoCidade}${cliente.enderecoEstado ? `/${cliente.enderecoEstado}` : ''}` : ''}
-                </p>
-              )}
+            <div className="mt-3 border-t border-line pt-3">
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">Telefone</p>
+                  <p className="text-ink">{cliente.telefone || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">CPF/CNPJ</p>
+                  <p className="font-mono text-ink">{cliente.cpfCnpj || '—'}</p>
+                </div>
+                {(enderecoCompleto || cliente.enderecoCidade) && (
+                  <div className="col-span-2">
+                    <p className="text-[11px] font-medium uppercase tracking-wide text-ink-soft">Endereço</p>
+                    <p className="text-ink">
+                      {enderecoCompleto}
+                      {cliente.enderecoBairro ? ` · ${cliente.enderecoBairro}` : ''}
+                      {cliente.enderecoCidade ? ` · ${cliente.enderecoCidade}${cliente.enderecoEstado ? `/${cliente.enderecoEstado}` : ''}` : ''}
+                    </p>
+                  </div>
+                )}
+              </div>
               {(!cliente.cpfCnpj || !cliente.telefone) && (
-                <p className="mt-2 rounded-md bg-warning-bg px-2.5 py-1.5 text-xs text-warning">Cadastro incompleto</p>
+                <p className="mt-3 rounded-md bg-warning-bg px-2.5 py-1.5 text-xs text-warning">Cadastro incompleto</p>
               )}
             </div>
           ) : (

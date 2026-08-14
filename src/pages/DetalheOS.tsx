@@ -12,12 +12,15 @@ import { ApiError } from '../lib/api';
 import {
   adicionarItemMaoDeObra,
   adicionarObservacao,
+  adicionarTarefa,
   atualizarOrdemServico,
   atualizarStatusOrdemServico,
+  atualizarTarefa,
   buscarOrdemServico,
   buscarSugestoesMaoDeObra,
   listarOrdensServico,
   removerItemMaoDeObra,
+  removerTarefa,
   type SugestaoMaoDeObra,
 } from '../lib/ordensServicoApi';
 import { atualizarLegendaFoto, comprimirImagem, cortarVideo, deletarFoto, MAX_DURACAO_VIDEO_S, obterDuracaoVideo, registrarFoto, solicitarUrlUpload, uploadParaR2 } from '../lib/fotosApi';
@@ -31,7 +34,7 @@ import {
 import { atualizarCliente } from '../lib/clientesApi';
 import { formatarCentavos, paraCentavos } from '../lib/moeda';
 import { CHECKLIST_FOTOS_ENTRADA } from '../lib/checklistFotosEntrada';
-import type { Foto, ItemOrcamento, OrdemServico, StatusOrdemServico, TipoItemOrcamento, TipoMidia, TipoPessoa, TipoValorMaoDeObra } from '../lib/types';
+import type { Foto, ItemOrcamento, OrdemServico, StatusOrdemServico, Tarefa, TipoItemOrcamento, TipoMidia, TipoPessoa, TipoValorMaoDeObra } from '../lib/types';
 
 const UNIDADES_COMUNS = ['un', 'par', 'jogo', 'L', 'kg', 'm', 'cx'];
 const LIMITE_MINIATURAS = 6;
@@ -62,6 +65,11 @@ export function DetalheOS() {
 
   const [novaObservacao, setNovaObservacao] = useState('');
   const [enviandoObservacao, setEnviandoObservacao] = useState(false);
+
+  const [novaTarefa, setNovaTarefa] = useState('');
+  const [enviandoTarefa, setEnviandoTarefa] = useState(false);
+  const [atualizandoTarefaId, setAtualizandoTarefaId] = useState<string | null>(null);
+  const [removendoTarefaId, setRemovendoTarefaId] = useState<string | null>(null);
 
   const [mostrarFormItem, setMostrarFormItem] = useState(false);
   const [tipoValorNovo, setTipoValorNovo] = useState<TipoValorMaoDeObra>('HORAS');
@@ -172,6 +180,50 @@ export function DetalheOS() {
       setErro(e instanceof ApiError ? e.message : 'Não foi possível adicionar a observação.');
     } finally {
       setEnviandoObservacao(false);
+    }
+  }
+
+  async function aoAdicionarTarefa(evento: FormEvent) {
+    evento.preventDefault();
+    if (!os || !novaTarefa.trim()) return;
+    setEnviandoTarefa(true);
+    setErro(null);
+    try {
+      const atualizado = await adicionarTarefa(os.id, novaTarefa.trim());
+      setOs(atualizado);
+      setNovaTarefa('');
+    } catch (e) {
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível adicionar o serviço.');
+    } finally {
+      setEnviandoTarefa(false);
+    }
+  }
+
+  async function aoAlternarTarefa(tarefa: Tarefa) {
+    if (!os) return;
+    setAtualizandoTarefaId(tarefa.id);
+    setErro(null);
+    try {
+      const atualizado = await atualizarTarefa(os.id, tarefa.id, !tarefa.concluida);
+      setOs(atualizado);
+    } catch (e) {
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível atualizar o serviço.');
+    } finally {
+      setAtualizandoTarefaId(null);
+    }
+  }
+
+  async function aoRemoverTarefa(tarefaId: string) {
+    if (!os || !window.confirm('Remover esse serviço da lista?')) return;
+    setRemovendoTarefaId(tarefaId);
+    setErro(null);
+    try {
+      const atualizado = await removerTarefa(os.id, tarefaId);
+      setOs(atualizado);
+    } catch (e) {
+      setErro(e instanceof ApiError ? e.message : 'Não foi possível remover o serviço.');
+    } finally {
+      setRemovendoTarefaId(null);
     }
   }
 
@@ -869,7 +921,74 @@ export function DetalheOS() {
           </div>
         </div>
 
-        {/* 3. Observações */}
+        {/* 3. Serviços a fazer */}
+        <div className="mb-5 rounded-lg border border-line bg-surface p-4">
+          <h2 className="mb-3 text-sm font-semibold text-ink">Serviços a fazer</h2>
+
+          {os.tarefas.length === 0 ? (
+            <p className="text-sm text-ink-soft">Nenhum serviço na lista ainda.</p>
+          ) : (
+            <ul className="flex flex-col gap-2.5">
+              {os.tarefas.map((tarefa) => (
+                <li key={tarefa.id} className="flex items-start gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => aoAlternarTarefa(tarefa)}
+                    disabled={!podeEditar || atualizandoTarefaId === tarefa.id}
+                    aria-label={tarefa.concluida ? 'Marcar como não feito' : 'Marcar como feito'}
+                    className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border-2 transition-colors ${
+                      tarefa.concluida ? 'border-green-500 bg-green-500' : 'border-line'
+                    } ${podeEditar ? 'cursor-pointer' : 'cursor-default opacity-60'}`}
+                  >
+                    {tarefa.concluida && (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    )}
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <p className={`text-sm ${tarefa.concluida ? 'text-ink-soft line-through' : 'text-ink'}`}>{tarefa.descricao}</p>
+                    <p className="mt-0.5 text-[11px] text-ink-soft">
+                      {tarefa.concluida && tarefa.concluidoPor
+                        ? `Feito por ${tarefa.concluidoPor.nome}${tarefa.concluidoEm ? ` · ${formatarDataHora(tarefa.concluidoEm)}` : ''}`
+                        : `Adicionado por ${tarefa.criadoPor.nome}`}
+                    </p>
+                  </div>
+                  {podeEditar && (
+                    <button
+                      type="button"
+                      onClick={() => aoRemoverTarefa(tarefa.id)}
+                      disabled={removendoTarefaId === tarefa.id}
+                      className="shrink-0 text-xs text-ink-soft underline hover:text-danger"
+                    >
+                      {removendoTarefaId === tarefa.id ? '...' : 'Remover'}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {podeEditar && (
+            <form onSubmit={aoAdicionarTarefa} className="mt-4 flex items-end gap-2">
+              <div className="flex-1">
+                <Campo
+                  rotulo="Novo serviço"
+                  id="novaTarefa"
+                  value={novaTarefa}
+                  onChange={(e) => setNovaTarefa(e.target.value)}
+                  placeholder="Ex: Trocar embreagem"
+                  autoComplete="off"
+                />
+              </div>
+              <Botao type="submit" disabled={enviandoTarefa || !novaTarefa.trim()}>
+                {enviandoTarefa ? 'Adicionando...' : 'Adicionar'}
+              </Botao>
+            </form>
+          )}
+        </div>
+
+        {/* 4. Observações */}
         <div className="mb-5 rounded-lg border border-line bg-surface p-4">
           <h2 className="mb-3 text-sm font-semibold text-ink">Observações</h2>
 
@@ -908,7 +1027,7 @@ export function DetalheOS() {
           )}
         </div>
 
-        {/* 4. Fotos do serviço */}
+        {/* 5. Fotos do serviço */}
         <div className="mb-5 rounded-lg border border-line bg-surface p-4">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold text-ink">Fotos do serviço</h2>
@@ -1016,7 +1135,7 @@ export function DetalheOS() {
           )}
         </div>
 
-        {/* 5. Orçamento: peças e serviços terceirizados */}
+        {/* 6. Orçamento: peças e serviços terceirizados */}
         <div className="mb-5 rounded-lg border border-line bg-surface p-4">
           <h2 className="mb-3 text-sm font-semibold text-ink">Orçamento</h2>
 
@@ -1199,7 +1318,7 @@ export function DetalheOS() {
           )}
         </div>
 
-        {/* 6. Mão de obra — só moderador */}
+        {/* 7. Mão de obra — só moderador */}
         {ehModerador && (
           <div className="mb-5 rounded-lg border border-line bg-surface p-4">
             <div className="mb-3 flex items-center justify-between">
@@ -1286,7 +1405,7 @@ export function DetalheOS() {
           </div>
         )}
 
-        {/* 7. Histórico do veículo */}
+        {/* 8. Histórico do veículo */}
         {historico.length > 0 && (
           <div className="rounded-lg border border-line bg-surface p-4">
             <h2 className="mb-3 text-sm font-semibold text-ink">Serviços anteriores deste veículo</h2>

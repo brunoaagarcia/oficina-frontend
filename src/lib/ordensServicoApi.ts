@@ -30,6 +30,18 @@ export function adicionarObservacao(id: string, texto: string) {
   return api<OrdemServico>(`/ordens-servico/${id}/observacoes`, { method: 'POST', body: { texto } });
 }
 
+export function adicionarTarefa(id: string, descricao: string) {
+  return api<OrdemServico>(`/ordens-servico/${id}/tarefas`, { method: 'POST', body: { descricao } });
+}
+
+export function atualizarTarefa(id: string, tarefaId: string, concluida: boolean) {
+  return api<OrdemServico>(`/ordens-servico/${id}/tarefas/${tarefaId}`, { method: 'PATCH', body: { concluida } });
+}
+
+export function removerTarefa(id: string, tarefaId: string) {
+  return api<OrdemServico>(`/ordens-servico/${id}/tarefas/${tarefaId}`, { method: 'DELETE' });
+}
+
 export interface NovoItemMaoDeObra {
   descricao: string;
   tipoValor: 'HORAS' | 'FECHADO';
