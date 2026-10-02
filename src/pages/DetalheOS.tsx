@@ -7,6 +7,7 @@ import { Botao } from '../components/Botao';
 import { Campo } from '../components/Campo';
 import { BotaoVoltar } from '../components/BotaoVoltar';
 import { Lightbox } from '../components/Lightbox';
+import { ComprovanteEntrada } from '../components/ComprovanteEntrada';
 import { useAuth } from '../lib/AuthContext';
 import { ApiError } from '../lib/api';
 import {
@@ -33,6 +34,7 @@ import {
 } from '../lib/orcamentoApi';
 import { atualizarCliente } from '../lib/clientesApi';
 import { formatarCentavos, paraCentavos } from '../lib/moeda';
+import { abrirWhatsAppCom, montarMensagemDePecas } from '../lib/pedidoDePecas';
 import { CHECKLIST_FOTOS_ENTRADA } from '../lib/checklistFotosEntrada';
 import type { Foto, ItemOrcamento, OrdemServico, StatusOrdemServico, Tarefa, TipoItemOrcamento, TipoMidia, TipoPessoa, TipoValorMaoDeObra } from '../lib/types';
 
@@ -655,6 +657,10 @@ export function DetalheOS() {
 
   return (
     <div className="min-h-screen bg-bg">
+      {/* Só aparece na impressão; o resto da página some (print:hidden abaixo). */}
+      <ComprovanteEntrada os={os} />
+
+      <div className="print:hidden">
       <Topbar />
 
       <main className={`mx-auto max-w-xl px-4 py-6 sm:px-6 ${temAcaoDisponivel ? 'pb-36 sm:pb-24' : ''}`}>
@@ -680,6 +686,18 @@ export function DetalheOS() {
           <div className="mt-3 border-t border-line pt-3 text-xs text-ink-soft">
             Aberta em {formatarDataHora(os.createdAt)} por {os.criadoPor.nome}
           </div>
+
+          {/* Mandar comprovante é decisão de quem atende o cliente, e a mesma
+              permissão que libera valores. */}
+          {ehModerador && (
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="mt-3 w-full rounded border border-line py-2 text-sm font-medium text-ink-soft hover:text-ink"
+            >
+              Comprovante de entrada (imprimir ou salvar PDF)
+            </button>
+          )}
         </div>
 
         {cadastroClienteIncompleto && !completandoCadastro && (
@@ -1144,17 +1162,30 @@ export function DetalheOS() {
             { tipo: 'TERCEIRIZADO' as const, titulo: 'Serviços terceirizados', itens: itensTerceirizados },
           ]).map((grupo, indiceGrupo) => (
             <div key={grupo.tipo} className={indiceGrupo > 0 ? 'mt-4 border-t border-line pt-4' : ''}>
-              <div className="mb-2 flex items-center justify-between">
+              <div className="mb-2 flex items-center justify-between gap-3">
                 <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-soft">{grupo.titulo}</h3>
-                {podeEditar && !(formOrcamento?.tipo === grupo.tipo && formOrcamento.itemId === null) && (
-                  <button
-                    type="button"
-                    onClick={() => abrirFormNovoItemOrcamento(grupo.tipo)}
-                    className="text-xs font-medium text-accent-ink underline"
-                  >
-                    + Adicionar
-                  </button>
-                )}
+                <div className="flex items-center gap-3">
+                  {/* Cotação é trabalho de quem orça - a mesma pessoa que a
+                      API deixa ver preço. */}
+                  {ehModerador && grupo.tipo === 'PECA' && grupo.itens.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => abrirWhatsAppCom(montarMensagemDePecas(os, grupo.itens))}
+                      className="text-xs font-medium text-accent-ink underline"
+                    >
+                      Pedir preço
+                    </button>
+                  )}
+                  {podeEditar && !(formOrcamento?.tipo === grupo.tipo && formOrcamento.itemId === null) && (
+                    <button
+                      type="button"
+                      onClick={() => abrirFormNovoItemOrcamento(grupo.tipo)}
+                      className="text-xs font-medium text-accent-ink underline"
+                    >
+                      + Adicionar
+                    </button>
+                  )}
+                </div>
               </div>
 
               {grupo.itens.length === 0 ? (
@@ -1499,6 +1530,7 @@ export function DetalheOS() {
           aoFechar={() => setLightbox(null)}
         />
       )}
+      </div>
     </div>
   );
 }
