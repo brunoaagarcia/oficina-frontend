@@ -1168,22 +1168,24 @@ export function DetalheOS() {
                   {/* Cotação é trabalho de quem orça - a mesma pessoa que a
                       API deixa ver preço. */}
                   {ehModerador && grupo.tipo === 'PECA' && grupo.itens.length > 0 && (
-                    <button
+                    <Botao
                       type="button"
+                      variante="secundario"
+                      tamanho="compacto"
                       onClick={() => abrirWhatsAppCom(montarMensagemDePecas(os, grupo.itens))}
-                      className="text-xs font-medium text-accent-ink underline"
                     >
                       Pedir preço
-                    </button>
+                    </Botao>
                   )}
                   {podeEditar && !(formOrcamento?.tipo === grupo.tipo && formOrcamento.itemId === null) && (
-                    <button
+                    <Botao
                       type="button"
+                      variante="primario"
+                      tamanho="compacto"
                       onClick={() => abrirFormNovoItemOrcamento(grupo.tipo)}
-                      className="text-xs font-medium text-accent-ink underline"
                     >
                       + Adicionar
-                    </button>
+                    </Botao>
                   )}
                 </div>
               </div>
@@ -1209,21 +1211,23 @@ export function DetalheOS() {
                           )}
                           {podeEditar && (
                             <div className="flex items-center gap-2">
-                              <button
+                              <Botao
                                 type="button"
+                                variante="secundario"
+                                tamanho="compacto"
                                 onClick={() => abrirFormEdicaoItemOrcamento(item)}
-                                className="text-xs text-ink-soft underline hover:text-ink"
                               >
                                 Editar
-                              </button>
-                              <button
+                              </Botao>
+                              <Botao
                                 type="button"
+                                variante="perigo"
+                                tamanho="compacto"
                                 onClick={() => aoRemoverItemOrcamento(item.id)}
                                 disabled={removendoOrcamentoId === item.id}
-                                className="text-xs text-ink-soft underline hover:text-danger"
                               >
                                 {removendoOrcamentoId === item.id ? '...' : 'Remover'}
-                              </button>
+                              </Botao>
                             </div>
                           )}
                         </div>

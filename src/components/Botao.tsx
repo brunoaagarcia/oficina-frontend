@@ -2,6 +2,7 @@ import type { ButtonHTMLAttributes } from 'react';
 
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
   variante?: 'primario' | 'secundario' | 'perigo';
+  tamanho?: 'padrao' | 'compacto';
 }
 
 const VARIANTES: Record<string, string> = {
@@ -10,10 +11,18 @@ const VARIANTES: Record<string, string> = {
   perigo: 'bg-surface text-danger border border-danger/40 hover:border-danger/70',
 };
 
-export function Botao({ variante = 'primario', className = '', ...props }: Props) {
+// "compacto" é para ações dentro de listas/cabeçalhos de seção (ex: "Pedir
+// preço", "Editar" num item de orçamento) - onde o botão padrão (px-4 py-2.5)
+// ficaria grande demais ao lado de um título ou dentro de uma linha de lista.
+const TAMANHOS: Record<string, string> = {
+  padrao: 'px-4 py-2.5 text-sm gap-2',
+  compacto: 'px-2.5 py-1 text-xs gap-1',
+};
+
+export function Botao({ variante = 'primario', tamanho = 'padrao', className = '', ...props }: Props) {
   return (
     <button
-      className={`inline-flex items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${VARIANTES[variante]} ${className}`}
+      className={`inline-flex items-center justify-center rounded-md font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${VARIANTES[variante]} ${TAMANHOS[tamanho]} ${className}`}
       {...props}
     />
   );
