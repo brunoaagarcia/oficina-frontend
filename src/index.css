@@ -52,3 +52,27 @@ body {
   outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
+
+/*
+  O navegador só dá cursor de "mãozinha" para <a> por padrão - <button> fica
+  com cursor: default no CSS nativo do navegador, mesmo clicável. Por isso
+  "Pedir preço" e "+ Adicionar" (que são <button>) não mudavam o ponteiro.
+  Aplica pointer em qualquer coisa clicável do site inteiro, de uma vez.
+*/
+button:not(:disabled),
+[role='button']:not(:disabled),
+input[type='button']:not(:disabled),
+input[type='submit']:not(:disabled),
+input[type='checkbox']:not(:disabled),
+input[type='radio']:not(:disabled),
+select:not(:disabled),
+label[for] {
+  cursor: pointer;
+}
+
+/* Botão desabilitado precisa avisar que não dá pra clicar, não parecer normal. */
+button:disabled,
+[role='button'][aria-disabled='true'],
+input:disabled {
+  cursor: not-allowed;
+}
