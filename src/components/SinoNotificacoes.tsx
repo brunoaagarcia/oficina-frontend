@@ -77,8 +77,12 @@ export function SinoNotificacoes() {
     setAberto(false);
     if (notificacao.ordemServicoId) {
       navegar(`/os/${notificacao.ordemServicoId}`);
+    } else if (notificacao.tipo === 'AGENDAMENTO') {
+      navegar('/agenda');
     }
   }
+
+  const clicavel = (n: Notificacao) => Boolean(n.ordemServicoId) || n.tipo === 'AGENDAMENTO';
 
   if (!usuario) return null;
 
@@ -118,9 +122,9 @@ export function SinoNotificacoes() {
                   <button
                     type="button"
                     onClick={() => aoClicarItem(n)}
-                    disabled={!n.ordemServicoId}
+                    disabled={!clicavel(n)}
                     className={`flex w-full flex-col gap-1 px-4 py-3 text-left transition-colors ${
-                      n.ordemServicoId ? 'hover:bg-bg' : 'cursor-default'
+                      clicavel(n) ? 'hover:bg-bg' : 'cursor-default'
                     } ${!n.lida ? 'bg-accent-soft/30' : ''}`}
                   >
                     <span className="text-sm text-ink">{n.texto}</span>

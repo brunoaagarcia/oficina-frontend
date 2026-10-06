@@ -11,6 +11,7 @@ import { Painel } from './pages/Painel';
 import { Backup } from './pages/Backup';
 import { Clientes } from './pages/Clientes';
 import { DetalheCliente } from './pages/DetalheCliente';
+import { Agenda } from './pages/Agenda';
 
 export default function App() {
   return (
@@ -31,6 +32,14 @@ export default function App() {
             element={
               <RotaProtegida>
                 <ListaOS />
+              </RotaProtegida>
+            }
+          />
+          <Route
+            path="/agenda"
+            element={
+              <RotaProtegida>
+                <Agenda />
               </RotaProtegida>
             }
           />

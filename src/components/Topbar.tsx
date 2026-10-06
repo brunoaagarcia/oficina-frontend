@@ -20,6 +20,12 @@ export function Topbar() {
 
         {usuario && (
           <div className="flex items-center gap-3">
+            <Link
+              to="/agenda"
+              className="hidden text-xs font-medium text-ink-soft hover:text-ink sm:block"
+            >
+              Agenda
+            </Link>
             {usuario.papel === 'MODERADOR' && (
               <>
                 <Link

@@ -14,7 +14,8 @@ export type TipoNotificacao =
   | 'OBSERVACAO'
   | 'FOTO'
   | 'MAO_DE_OBRA'
-  | 'CLIENTE_ATUALIZADO';
+  | 'CLIENTE_ATUALIZADO'
+  | 'AGENDAMENTO';
 
 export interface Notificacao {
   id: string;

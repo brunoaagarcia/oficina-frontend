@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Topbar } from '../components/Topbar';
 import { Campo } from '../components/Campo';
 import { Botao } from '../components/Botao';
@@ -15,15 +15,21 @@ import type { Cliente, Foto, OrdemServico, TipoPessoa, Veiculo } from '../lib/ty
 export function AbrirOS() {
   const navegar = useNavigate();
 
+  // Vindo da Agenda ("Carro chegou"): a abertura já começa com o que foi
+  // combinado por telefone - placa, queixa e, se o carro for novo no
+  // sistema, modelo/nome/telefone. Ninguém digita duas vezes.
+  const [parametros] = useSearchParams();
+  const placaAgendada = parametros.get('placa')?.trim().toUpperCase() ?? '';
+
   // Passo 0: placa
-  const [placa, setPlaca] = useState('');
-  const [buscandoPlaca, setBuscandoPlaca] = useState(false);
+  const [placa, setPlaca] = useState(placaAgendada);
+  const [buscandoPlaca, setBuscandoPlaca] = useState(Boolean(placaAgendada));
   const [veiculoEncontrado, setVeiculoEncontrado] = useState<Veiculo | null | undefined>(undefined);
   const [veiculoConfirmado, setVeiculoConfirmado] = useState(false);
   const veiculoBuscado = veiculoEncontrado !== undefined;
 
   // Passo 1b: cliente (quando veiculo não existe)
-  const [nomeBusca, setNomeBusca] = useState('');
+  const [nomeBusca, setNomeBusca] = useState(() => parametros.get('nome') ?? '');
   const [sugestoesClientes, setSugestoesClientes] = useState<Cliente[]>([]);
   const [buscandoClientes, setBuscandoClientes] = useState(false);
   const [clienteSelecionado, setClienteSelecionado] = useState<Cliente | null>(null);
@@ -31,7 +37,7 @@ export function AbrirOS() {
   const [clienteNovoConfirmado, setClienteNovoConfirmado] = useState(false);
   const [cpfCnpjCliente, setCpfCnpjCliente] = useState('');
   const [tipoPessoaCliente, setTipoPessoaCliente] = useState<TipoPessoa>('FISICA');
-  const [telefoneCliente, setTelefoneCliente] = useState('');
+  const [telefoneCliente, setTelefoneCliente] = useState(() => parametros.get('telefone') ?? '');
   const [enderecoRuaCliente, setEnderecoRuaCliente] = useState('');
   const [enderecoNumeroCliente, setEnderecoNumeroCliente] = useState('');
   const [enderecoBairroCliente, setEnderecoBairroCliente] = useState('');
@@ -39,7 +45,7 @@ export function AbrirOS() {
   const [enderecoEstadoCliente, setEnderecoEstadoCliente] = useState('');
 
   // Passo 1b: veiculo novo (quando não existe)
-  const [modeloNovo, setModeloNovo] = useState('');
+  const [modeloNovo, setModeloNovo] = useState(() => parametros.get('modelo') ?? '');
   const [marcaNova, setMarcaNova] = useState('');
   const [anoNovo, setAnoNovo] = useState('');
   const [motorNovo, setMotorNovo] = useState('');
@@ -47,7 +53,7 @@ export function AbrirOS() {
 
   // Passo 2: serviço
   const [kmRegistrado, setKmRegistrado] = useState('');
-  const [queixaInicial, setQueixaInicial] = useState('');
+  const [queixaInicial, setQueixaInicial] = useState(() => parametros.get('queixa') ?? '');
 
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -167,6 +173,18 @@ export function AbrirOS() {
     setVeiculoEncontrado(veiculo);
     setSugestoesPlaca([]);
   }
+
+  // Vindo da Agenda com a placa no link: procura o carro assim que a tela
+  // abre (os campos já nasceram preenchidos lá em cima).
+  useEffect(() => {
+    if (!placaAgendada) return;
+    buscarVeiculoPorPlaca(placaAgendada)
+      .then(({ veiculo }) => setVeiculoEncontrado(veiculo))
+      .catch(() => setErro('Não foi possível verificar a placa. Tente de novo.'))
+      .finally(() => setBuscandoPlaca(false));
+    // Só na chegada à tela: o link é o ponto de partida, não um vínculo.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function buscarPlaca() {
     const placaNorm = placa.trim().toUpperCase();
