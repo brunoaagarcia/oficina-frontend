@@ -5,7 +5,8 @@ export type StatusAgendamento = 'AGENDADO' | 'CONCLUIDO' | 'CANCELADO';
 export interface Agendamento {
   id: string;
   dataHora: string;
-  placa: string;
+  // Opcional: quem liga para marcar nem sempre sabe a placa de cabeça.
+  placa: string | null;
   modelo: string | null;
   nomeCliente: string | null;
   telefone: string | null;
@@ -123,6 +124,11 @@ export function horariosDoDia(data: Date): string[] {
   return lista;
 }
 
+// Como o agendamento é chamado na tela: placa, senão nome, senão modelo.
+export function identificacao(a: Agendamento): string {
+  return a.placa ?? a.nomeCliente ?? a.modelo ?? a.telefone ?? 'Sem identificação';
+}
+
 // "(16) 99999-0000" -> "5516999990000"; número que não parece do Brasil -> null.
 export function numeroParaWhatsApp(telefone: string): string | null {
   const digitos = telefone.replace(/\D/g, '').replace(/^0+/, '');
@@ -134,10 +140,14 @@ export function numeroParaWhatsApp(telefone: string): string | null {
 export function mensagemDeConfirmacao(a: Agendamento): string {
   const primeiroNome = a.nomeCliente?.trim().split(' ')[0];
   const saudacao = primeiroNome ? `Olá, ${primeiroNome}!` : 'Olá!';
-  const carro = a.modelo ? `${a.modelo} (${a.placa})` : `carro ${a.placa}`;
+  const horario =
+    a.modelo && a.placa ? `o horário do seu ${a.modelo} (${a.placa})`
+      : a.modelo ? `o horário do seu ${a.modelo}`
+        : a.placa ? `o horário do seu carro ${a.placa}`
+          : 'o seu horário';
   return (
     `${saudacao} Aqui é da Meca Mecânica.\n\n` +
-    `Confirmando o horário do seu ${carro}: ${resumoDataHora(new Date(a.dataHora))}.\n\n` +
+    `Confirmando ${horario}: ${resumoDataHora(new Date(a.dataHora))}.\n\n` +
     'Se precisar remarcar, é só responder esta mensagem. Até lá!'
   );
 }

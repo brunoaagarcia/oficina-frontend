@@ -14,6 +14,7 @@ import {
   diaPorExtenso,
   horaMinuto,
   horariosDoDia,
+  identificacao,
   inicioDoDia,
   listarAgendamentos,
   mensagemDeConfirmacao,
@@ -145,7 +146,8 @@ export function Agenda() {
   async function carroChegou(a: Agendamento) {
     await mudarStatus(a, 'CONCLUIDO');
     // A abertura da OS já começa com o que foi combinado por telefone.
-    const params = new URLSearchParams({ placa: a.placa });
+    const params = new URLSearchParams();
+    if (a.placa) params.set('placa', a.placa);
     if (a.motivo) params.set('queixa', a.motivo);
     if (a.modelo) params.set('modelo', a.modelo);
     if (a.nomeCliente) params.set('nome', a.nomeCliente);
@@ -290,8 +292,8 @@ export function Agenda() {
             if (ok) {
               setAviso(
                 status === 'CANCELADO'
-                  ? `Agendamento de ${aberto.placa} cancelado`
-                  : `${aberto.placa} voltou para a agenda`,
+                  ? `Agendamento de ${identificacao(aberto)} cancelado`
+                  : `${identificacao(aberto)} voltou para a agenda`,
               );
             }
           }}
@@ -365,17 +367,43 @@ function LinhaAgendamento({ agendamento: a, aoClicar }: { agendamento: Agendamen
         <span className={`w-1.5 shrink-0 ${ESTILO_STATUS[a.status].barra}`} />
         <span className="flex min-w-0 flex-1 flex-col gap-0.5 px-4 py-3">
           <span className="flex items-center justify-between gap-2">
-            <span className={`font-mono text-base font-bold tracking-widest text-ink ${cancelado ? 'line-through' : ''}`}>
-              {a.placa}
-            </span>
+            <TituloAgendamento agendamento={a} cancelado={cancelado} />
             <ChipStatus status={a.status} />
           </span>
-          {a.modelo && <span className="truncate text-sm text-ink">{a.modelo}</span>}
-          {a.nomeCliente && <span className="truncate text-xs text-ink-soft">{a.nomeCliente}</span>}
+          {a.modelo && a.modelo !== identificacao(a) && <span className="truncate text-sm text-ink">{a.modelo}</span>}
+          {a.nomeCliente && a.nomeCliente !== identificacao(a) && (
+            <span className="truncate text-xs text-ink-soft">{a.nomeCliente}</span>
+          )}
           {a.motivo && <span className="mt-1 line-clamp-2 text-sm text-ink-soft">{a.motivo}</span>}
         </span>
       </button>
     </div>
+  );
+}
+
+// Placa em destaque quando existe (é como a oficina reconhece o carro);
+// sem placa, o nome do cliente (ou o modelo) assume o lugar.
+function TituloAgendamento({
+  agendamento: a,
+  cancelado = false,
+  grande = false,
+}: {
+  agendamento: Agendamento;
+  cancelado?: boolean;
+  grande?: boolean;
+}) {
+  const riscado = cancelado ? 'line-through' : '';
+  if (a.placa) {
+    return (
+      <span className={`font-mono font-bold tracking-widest text-ink ${grande ? 'text-2xl' : 'text-base'} ${riscado}`}>
+        {a.placa}
+      </span>
+    );
+  }
+  return (
+    <span className={`truncate font-display font-bold text-ink ${grande ? 'text-xl' : 'text-base'} ${riscado}`}>
+      {identificacao(a)}
+    </span>
   );
 }
 
@@ -435,10 +463,11 @@ function FichaAgendamento({
     <Modal titulo="Agendamento" aoFechar={aoFechar}>
       <div className="flex flex-col gap-4 overflow-y-auto px-5 py-4">
         <div className="flex items-center justify-between gap-3">
-          <span className="font-mono text-2xl font-bold tracking-widest text-ink">{a.placa}</span>
+          <TituloAgendamento agendamento={a} grande />
           <ChipStatus status={a.status} />
         </div>
-        {a.modelo && <p className="-mt-2 text-base font-medium text-ink">{a.modelo}</p>}
+        {a.modelo && a.modelo !== identificacao(a) && <p className="-mt-2 text-base font-medium text-ink">{a.modelo}</p>}
+        {!a.placa && a.status === 'AGENDADO' && <p className="-mt-2 text-xs font-medium text-warning">Placa a confirmar</p>}
 
         <dl className="flex flex-col gap-2 text-sm">
           <Detalhe rotulo="Quando" valor={`${diaPorExtenso(inicioDoDia(data))} às ${horaMinuto(data)}`} />
@@ -470,7 +499,7 @@ function FichaAgendamento({
 
         {confirmandoCancelamento && (
           <div className="rounded-lg border border-danger/40 bg-danger-bg p-4">
-            <p className="text-sm font-medium text-ink">Cancelar o horário de {a.placa}?</p>
+            <p className="text-sm font-medium text-ink">Cancelar o horário de {identificacao(a)}?</p>
             <p className="mt-1 text-xs text-ink-soft">O horário fica livre. Se o cliente mudar de ideia, dá para reativar depois.</p>
             <div className="mt-3 flex gap-2">
               <Botao variante="secundario" onClick={() => setConfirmandoCancelamento(false)} disabled={ocupado}>Manter</Botao>
@@ -538,11 +567,15 @@ function FormularioAgendamento({
   const preenchidoAuto = useRef({ modelo: '', nome: '', telefone: '' });
 
   const placaLimpa = placa.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
-  const placaValida = placaLimpa.length >= 7;
+  // Placa completa: só então vale procurar o carro no cadastro.
+  const placaCompleta = placaLimpa.length >= 7;
+  // Placa e modelo são opcionais (quem liga nem sempre sabe a placa de
+  // cabeça), mas precisa dar para saber quem vem: placa, nome ou telefone.
+  const temIdentificacao = placaLimpa.length > 0 || nomeCliente.trim() !== '' || telefone.trim() !== '';
 
   // Carro que já veio aqui: modelo, dono e telefone aparecem sozinhos.
   useEffect(() => {
-    if (!placaValida) return;
+    if (!placaCompleta) return;
     const t = setTimeout(() => {
       buscarVeiculoPorPlaca(placaLimpa)
         .then(({ veiculo: v }) => {
@@ -568,7 +601,7 @@ function FormularioAgendamento({
         .catch(() => {});
     }, 350);
     return () => clearTimeout(t);
-  }, [placaLimpa, placaValida]);
+  }, [placaLimpa, placaCompleta]);
 
   function aoMudarPlaca(valor: string) {
     const auto = preenchidoAuto.current;
@@ -589,8 +622,8 @@ function FormularioAgendamento({
 
   const outrosAtivos = doDia.filter((a) => a.id !== existente?.id && a.status !== 'CANCELADO');
   const ocupacao = (h: string) => outrosAtivos.filter((a) => horaMinuto(new Date(a.dataHora)) === h).length;
-  const mesmoCarro = placaValida
-    ? outrosAtivos.find((a) => a.placa.replace(/[^A-Za-z0-9]/g, '') === placaLimpa)
+  const mesmoCarro = placaCompleta
+    ? outrosAtivos.find((a) => a.placa?.replace(/[^A-Za-z0-9]/g, '') === placaLimpa)
     : undefined;
 
   const horarios = horariosDoDia(data);
@@ -605,7 +638,7 @@ function FormularioAgendamento({
   // faria o aviso piscar no exato minuto em que o horário passa.
   const [agora] = useState(() => Date.now());
   const jaPassou = dataHora !== null && dataHora.getTime() < agora;
-  const podeSalvar = placaValida && dataHora !== null && !salvando;
+  const podeSalvar = temIdentificacao && dataHora !== null && !salvando;
 
   async function salvar() {
     if (!podeSalvar || !dataHora) return;
@@ -630,17 +663,17 @@ function FormularioAgendamento({
 
   const rotuloBotao = salvando
     ? 'Salvando...'
-    : !placaValida
-      ? 'Informe a placa'
-      : !dataHora
-        ? 'Escolha o horário'
+    : !dataHora
+      ? 'Escolha o horário'
+      : !temIdentificacao
+        ? 'Informe placa, nome ou telefone'
         : `${existente ? 'Salvar' : 'Agendar'} · ${resumoDataHora(dataHora)}`;
 
   return (
     <Modal titulo={existente ? 'Editar agendamento' : 'Novo agendamento'} aoFechar={aoFechar}>
       <div className="flex flex-col gap-4 overflow-y-auto px-5 py-4">
         <label className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-ink-soft">Placa</span>
+          <span className="text-xs font-medium text-ink-soft">Placa (opcional)</span>
           <input
             value={placa}
             onChange={(e) => aoMudarPlaca(e.target.value)}
@@ -649,6 +682,9 @@ function FormularioAgendamento({
             className="rounded-md border border-line bg-bg px-3 py-3 text-center font-mono text-2xl font-bold tracking-[0.25em] text-ink placeholder:text-ink-soft/30 focus:border-accent"
           />
         </label>
+        {!temIdentificacao && (
+          <p className="-mt-2 text-xs text-ink-soft">Não sabe a placa? Tudo bem: preencha o nome ou o telefone mais abaixo.</p>
+        )}
         {veiculo && (
           <p className="-mt-2 rounded-md bg-success-bg px-3 py-2 text-xs text-success">
             Carro já cadastrado: {[veiculo.marca, veiculo.modelo, veiculo.ano].filter(Boolean).join(' ')}
@@ -732,7 +768,7 @@ function FormularioAgendamento({
 
         {mesmoCarro && (
           <p className="rounded-md bg-warning-bg px-3 py-2 text-xs text-warning">
-            {mesmoCarro.placa} já tem horário neste dia às {horaMinuto(new Date(mesmoCarro.dataHora))}. Confira se não é o
+            {identificacao(mesmoCarro)} já tem horário neste dia às {horaMinuto(new Date(mesmoCarro.dataHora))}. Confira se não é o
             mesmo agendamento marcado duas vezes.
           </p>
         )}
