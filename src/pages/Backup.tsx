@@ -39,14 +39,20 @@ export function Backup() {
   const [placaDigitada, setPlacaDigitada] = useState('');
   const [excluindoId, setExcluindoId] = useState<string | null>(null);
 
-  if (usuario && usuario.papel !== 'MODERADOR') return <Navigate to="/" replace />;
+  const ehModerador = usuario?.papel === 'MODERADOR';
 
+  // Hook sempre antes de qualquer "return" - o React exige a mesma ordem de
+  // hooks em toda renderização (com o return antes, a página quebrava em
+  // branco se o papel mudasse com ela aberta).
   useEffect(() => {
+    if (!ehModerador) return;
     listarArquivaveis()
       .then(setLista)
       .catch((e) => setErro(e instanceof ApiError ? e.message : 'Não foi possível carregar.'))
       .finally(() => setCarregando(false));
-  }, []);
+  }, [ehModerador]);
+
+  if (usuario && !ehModerador) return <Navigate to="/" replace />;
 
   async function baixarZip(os: OSArquivavel) {
     setErro(null);

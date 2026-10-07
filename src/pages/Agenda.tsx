@@ -342,8 +342,9 @@ function tempoAte(data: Date): { texto: string; atrasado: boolean } | null {
   const minutos = Math.round((data.getTime() - agora.getTime()) / 60000);
   if (minutos >= 0 && minutos < 60) return { texto: `em ${minutos} min`, atrasado: false };
   if (minutos >= 60) return { texto: `em ${Math.floor(minutos / 60)} h`, atrasado: false };
-  if (minutos > -60) return { texto: `atrasado ${-minutos} min`, atrasado: true };
-  return { texto: `atrasado ${Math.floor(-minutos / 60)} h`, atrasado: true };
+  // Quebra de linha no lugar certo: a coluna da hora é estreita.
+  if (minutos > -60) return { texto: `atrasado\n${-minutos} min`, atrasado: true };
+  return { texto: `atrasado\n${Math.floor(-minutos / 60)} h`, atrasado: true };
 }
 
 function LinhaAgendamento({ agendamento: a, aoClicar }: { agendamento: Agendamento; aoClicar: () => void }) {
@@ -356,7 +357,7 @@ function LinhaAgendamento({ agendamento: a, aoClicar }: { agendamento: Agendamen
       <div className="w-14 shrink-0 pt-3 text-right">
         <p className="font-display text-base font-bold text-ink">{horaMinuto(data)}</p>
         {falta && (
-          <p className={`text-[11px] font-medium ${falta.atrasado ? 'text-danger' : 'text-warning'}`}>{falta.texto}</p>
+          <p className={`whitespace-pre-line text-[11px] font-medium leading-tight ${falta.atrasado ? 'text-danger' : 'text-warning'}`}>{falta.texto}</p>
         )}
       </div>
       <button
